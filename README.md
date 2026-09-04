@@ -42,9 +42,13 @@ so a new app is mostly `app.cpp`.
 1. **Use this template** on GitHub → your repo. Then find-and-replace
    `esp32-board-app-template` / `whitewhidow` in `version.h`, `release.yml`, the portal,
    and the flasher with your repo/owner. Set Pages to serve from **`/` (root)**.
-2. Build/flash: `pio run -e s3-headless -t upload` (add `-e <board>` for others).
-3. Write your app in **`app.cpp`** (`appSetup`/`appLoop` + `appHandleCommand`) and add
+2. **Name your app**: set `APP_NAME` in `version.h` (the BLE advertised name + on-screen
+   title). Each web page carries its own `const APP_NAME` at the top of its script
+   (`portal/`, `flasher/`, root `index.html`) that drives its title/heading — keep those in
+   sync with `version.h`.
+3. Build/flash: `pio run -e s3-headless -t upload` (add `-e <board>` for others).
+4. Write your app in **`app.cpp`** (`appSetup`/`appLoop` + `appHandleCommand`) and add
    settings in **`config.cpp`** (`CFG_FIELDS`).
-4. Release: `git tag v0.1.0 && git push --tags` — CI publishes bins + the flasher.
+5. Release: `git tag v0.1.0 && git push --tags` — CI publishes bins + the flasher.
 
 The demo app just echoes text from the portal onto the board's screen, to show the wiring.

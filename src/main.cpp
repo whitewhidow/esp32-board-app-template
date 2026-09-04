@@ -24,7 +24,7 @@ void setup() {
   if (showSplash) dispSplash(APP_VERSION, APP_BOARD_NAME);
 
   netBegin();                        // load saved WiFi creds (no auto-connect)
-  bleBegin("AppBoard");              // <-- your advertised BLE name (also shown in the portal)
+  bleBegin(APP_NAME);                // advertised BLE name (set APP_NAME in version.h)
   appSetup();
 
 #if APP_BTN >= 0

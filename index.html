@@ -6,9 +6,15 @@ h1{font-size:26px;margin:0 0 6px}.sub{color:#8b949e;margin:0 0 24px}
 a.card{display:block;text-decoration:none;color:#e6edf3;background:#161b22;border:1px solid #30363d;border-radius:12px;padding:16px;margin:10px 0}
 a.card:hover{border-color:#22d3e0}a.card b{color:#22d3e0}a.card span{display:block;color:#8b949e;font-size:14px;margin-top:3px}
 footer{margin-top:26px;color:#5c6772;font-size:13px}footer a{color:#8b949e}</style></head><body>
-<h1>🔧 Board App</h1>
+<h1 id="appTitle">🔧 Board App</h1>
 <p class="sub">An ESP32 board app — controlled from your phone over Bluetooth, updated over WiFi.</p>
 <a class="card" href="./portal/"><b>BLE Portal →</b><span>Connect &amp; control the board (Chrome/Edge, Web Bluetooth).</span></a>
 <a class="card" href="./flasher/"><b>Web Flasher →</b><span>Flash a board over USB from the browser (Chrome/Edge desktop).</span></a>
 <footer><a href="https://github.com/whitewhidow/esp32-board-app-template">GitHub</a></footer>
+<script>
+// ---- app name: the ONE place to rename this page (keep in sync with firmware version.h) ----
+const APP_NAME='Board App';
+document.title=APP_NAME;
+document.getElementById('appTitle').textContent='🔧 '+APP_NAME;
+</script>
 </body></html>

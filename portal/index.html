@@ -28,7 +28,7 @@
 </style>
 </head>
 <body>
-<h1>🔧 Board App</h1>
+<h1 id="appTitle">🔧 Board App</h1>
 <button id="connect" style="width:100%">Connect</button>
 
 <div id="hdr" hidden>
@@ -75,6 +75,11 @@
 </div>
 
 <script>
+// ---- app name: the ONE place to rename this page (keep in sync with firmware version.h) ----
+const APP_NAME='Board App';
+document.title=APP_NAME+' — control';
+document.getElementById('appTitle').textContent='🔧 '+APP_NAME;
+
 const SVC='a0b00000-1234-4b0a-9c5e-000000000000';
 const RX ='a0b00001-1234-4b0a-9c5e-000000000000';
 const TX ='a0b00002-1234-4b0a-9c5e-000000000000';
@@ -154,7 +159,7 @@ $('connect').onclick = async () => {
     const tx = await svc.getCharacteristic(TX);
     await tx.startNotifications(); tx.addEventListener('characteristicvaluechanged', onNotify);
     $('connect').hidden=true; $('hdr').hidden=false; $('app').hidden=false;
-    $('hConn').textContent = '● ' + (dev.name || 'connected');
+    $('hConn').textContent = dev.name || 'connected';
     send('__VER__'); setTimeout(()=>send('__WIFIST__'), 400); checkLatest();
   } catch(e){ alert('Connect failed: ' + e.message); }
 };

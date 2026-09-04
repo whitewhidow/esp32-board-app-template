@@ -13,6 +13,11 @@
 
 #define APP_VERSION "0.1.0"
 
+// Your app's name — the BLE advertised name + shown on the display. The portal /
+// flasher / landing pages carry their own APP_NAME const (top of each HTML) since
+// they're served standalone; keep them in sync. This is the one firmware-side spot.
+#define APP_NAME "Board App"
+
 // Change these two to your GitHub org/repo. Each board pulls its OWN asset (different
 // pins/panel -> different binary), named after the env: <repo>-app-<env>.bin.
 #define APP_GH_OWNER "whitewhidow"
