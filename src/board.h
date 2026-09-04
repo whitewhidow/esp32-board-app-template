@@ -10,7 +10,7 @@
 
 // ==== ESP32-S3 boards WITH a display =============================================
 #if defined(APP_BOARD_TEMBED)
-  #define APP_BOARD_NAME "T-Embed CC1101"
+  #define APP_BOARD_NAME "T-Embed CC1101 / Plus"
   #define APP_HAS_DISPLAY 1
   #define PANEL_ST7789
   #define PANEL_SPI_HOST SPI2_HOST

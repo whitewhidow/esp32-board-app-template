@@ -27,10 +27,10 @@ jobs:
       - name: Build + package bins (app-only + merged)
         run: |
           set -e
-          declare -A CHIP=( [s3-headless]=esp32s3 [tembed]=esp32s3 [tdongle]=esp32s3 [cardputer]=esp32s3 [tdisplay-c5]=esp32c5 [waveshare-c5]=esp32c5 )
-          declare -A SIZE=( [s3-headless]=8MB [tembed]=16MB [tdongle]=16MB [cardputer]=8MB [tdisplay-c5]=16MB [waveshare-c5]=4MB )
-          declare -A BOOT=( [s3-headless]=0x0 [tembed]=0x0 [tdongle]=0x0 [cardputer]=0x0 [tdisplay-c5]=0x2000 [waveshare-c5]=0x2000 )
-          for env in s3-headless tembed tdongle cardputer tdisplay-c5 waveshare-c5; do
+          declare -A CHIP=( [s3-headless]=esp32s3 [tembed-cc1101]=esp32s3 [tdongle-s3]=esp32s3 [cardputer]=esp32s3 [tdisplay-c5]=esp32c5 [waveshare-c5]=esp32c5 )
+          declare -A SIZE=( [s3-headless]=8MB [tembed-cc1101]=16MB [tdongle-s3]=16MB [cardputer]=8MB [tdisplay-c5]=16MB [waveshare-c5]=4MB )
+          declare -A BOOT=( [s3-headless]=0x0 [tembed-cc1101]=0x0 [tdongle-s3]=0x0 [cardputer]=0x0 [tdisplay-c5]=0x2000 [waveshare-c5]=0x2000 )
+          for env in s3-headless tembed-cc1101 tdongle-s3 cardputer tdisplay-c5 waveshare-c5; do
             # pioarduino's C5 target occasionally resolves FRAMEWORK_DIR=None on a cold cache — retry.
             for i in 1 2 3; do pio run -e "$env" && break; echo "retry $env ($i)"; sleep 4; done
             BA=$(find ~/.platformio/packages -name boot_app0.bin -path '*framework-arduinoespressif32*' | head -1)
@@ -65,7 +65,7 @@ jobs:
           set -e
           VER="${GITHUB_REF_NAME}"
           mkdir -p "flasher/fw/$VER"
-          for env in s3-headless tembed tdongle cardputer tdisplay-c5 waveshare-c5; do
+          for env in s3-headless tembed-cc1101 tdongle-s3 cardputer tdisplay-c5 waveshare-c5; do
             cp "_bins/${REPO}-$env.bin" "flasher/fw/$VER/${REPO}-$env.bin" 2>/dev/null || true
           done
           rm -rf _bins
@@ -75,8 +75,8 @@ jobs:
           jq -n --argjson versions "$vers" '{
             boards:[
               {env:"s3-headless",  name:"Generic ESP32-S3 (headless)", chipFamily:"ESP32-S3"},
-              {env:"tembed",       name:"LilyGo T-Embed CC1101",       chipFamily:"ESP32-S3"},
-              {env:"tdongle",      name:"LilyGo T-Dongle S3",          chipFamily:"ESP32-S3"},
+              {env:"tembed-cc1101",       name:"LilyGo T-Embed CC1101 / Plus",       chipFamily:"ESP32-S3"},
+              {env:"tdongle-s3",      name:"LilyGo T-Dongle S3",          chipFamily:"ESP32-S3"},
               {env:"cardputer",    name:"M5Cardputer ADV",             chipFamily:"ESP32-S3"},
               {env:"tdisplay-c5",  name:"LilyGo T-Display C5",         chipFamily:"ESP32-C5"},
               {env:"waveshare-c5", name:"Waveshare ESP32-C5-LCD",      chipFamily:"ESP32-C5"}

@@ -19,9 +19,9 @@
 #define APP_GH_REPO  "esp32-board-app-template"
 
 #if defined(APP_BOARD_TEMBED)
-#  define APP_OTA_ENV "tembed"
+#  define APP_OTA_ENV "tembed-cc1101"
 #elif defined(APP_BOARD_TDONGLE)
-#  define APP_OTA_ENV "tdongle"
+#  define APP_OTA_ENV "tdongle-s3"
 #elif defined(APP_BOARD_CARDPUTER)
 #  define APP_OTA_ENV "cardputer"
 #elif defined(APP_BOARD_TDISPLAY_C5)
