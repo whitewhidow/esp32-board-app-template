@@ -18,6 +18,9 @@
 // they're served standalone; keep them in sync. This is the one firmware-side spot.
 #define APP_NAME "Board App"
 
+// Splash subtitle / tagline (shown under the title on the boot splash).
+#define APP_TAGLINE "BLE control"
+
 // Change these two to your GitHub org/repo. Each board pulls its OWN asset (different
 // pins/panel -> different binary), named after the env: <repo>-app-<env>.bin.
 #define APP_GH_OWNER "whitewhidow"

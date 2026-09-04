@@ -69,19 +69,42 @@
   #define PANEL_FREQ 40000000
   #define APP_BTN  0
 
-// ==== ESP32-C5 boards — HEADLESS for now (pins ready; set APP_HAS_DISPLAY 1 + fill
-//      PANEL_* to enable the ST7789. Kept off per current project decision). =========
+// ==== ESP32-C5 boards — ST7789 over SPI2, same LovyanGFX path as the S3 boards ======
 #elif defined(APP_BOARD_TDISPLAY_C5)
   #define APP_BOARD_NAME "T-Display C5"
-  #define APP_HAS_DISPLAY 0
+  #define APP_HAS_DISPLAY 1
+  #define PANEL_SPI_HOST SPI2_HOST
+  #define PIN_SCLK 7
+  #define PIN_MOSI 9
+  #define PIN_MISO -1
+  #define PIN_CS   26
+  #define PIN_DC   8
+  #define PIN_RST  23
+  #define PIN_BL   25            // also the panel power rail — Light_PWM drives it high
+  #define PANEL_W  170
+  #define PANEL_H  320
+  #define OFFX     35
+  #define OFFY     0
+  #define PANEL_FREQ 40000000
   #define APP_BTN  -1
-  // ST7789 170x320, off 35/0, SPI2: SCLK 7 MOSI 9 CS 26 DC 8 RST 23 BL 25 (PWR_EN)
 
 #elif defined(APP_BOARD_WAVESHARE_C5)
   #define APP_BOARD_NAME "Waveshare C5"
-  #define APP_HAS_DISPLAY 0
+  #define APP_HAS_DISPLAY 1
+  #define PANEL_SPI_HOST SPI2_HOST
+  #define PIN_SCLK 7
+  #define PIN_MOSI 6
+  #define PIN_MISO -1
+  #define PIN_CS   23
+  #define PIN_DC   24
+  #define PIN_RST  26
+  #define PIN_BL   10
+  #define PANEL_W  172
+  #define PANEL_H  320
+  #define OFFX     34
+  #define OFFY     0
+  #define PANEL_FREQ 40000000
   #define APP_BTN  -1
-  // ST7789 172x320, off 34/0, SPI2: SCLK 7 MOSI 6 CS 23 DC 24 RST 26 BL 10
 
 // ==== Generic / headless =========================================================
 #elif defined(APP_BOARD_HEADLESS)

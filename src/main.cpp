@@ -33,7 +33,7 @@ void setup() {
 
   if (showSplash) delay(1500);       // only linger if we showed it
   dispCenter(APP_BOARD_NAME, (String("v") + APP_VERSION + "\nready").c_str(), 0x3FB950);
-  dispStatus(bleConnected(), netConnected(), -1);
+  dispStatus(bleConnected(), netConfigured(), -1);   // WiFi badge = creds saved (config-only board)
 }
 
 void loop() {
@@ -51,6 +51,6 @@ void loop() {
 #endif
 
   static uint32_t t = 0;
-  if (millis() - t > 1000) { t = millis(); dispStatus(bleConnected(), netConnected(), -1); }
+  if (millis() - t > 1000) { t = millis(); dispStatus(bleConnected(), netConfigured(), -1); }
   delay(10);
 }

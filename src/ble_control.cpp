@@ -59,7 +59,15 @@ void bleBegin(const char* advName) {
   s_tx = svc->createCharacteristic(CTRL_TX, NIMBLE_PROPERTY::NOTIFY);
   svc->start();
   NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
-  adv->addServiceUUID(CTRL_SVC); adv->setName(advName); NimBLEDevice::startAdvertising();
+  // GOTCHA: a 128-bit service UUID (18 bytes) + the name won't both fit the 31-byte
+  // primary adv packet ("Data length exceeded" -> name silently dropped). Keep the UUID
+  // in the primary (the portal filters by it) and move the NAME into the scan response.
+  adv->addServiceUUID(CTRL_SVC);
+  NimBLEAdvertisementData scanResp;
+  scanResp.setName(advName);
+  adv->setScanResponseData(scanResp);
+  adv->enableScanResponse(true);
+  NimBLEDevice::startAdvertising();
   strncpy(g_mac, NimBLEDevice::getAddress().toString().c_str(), sizeof(g_mac) - 1);
 }
 

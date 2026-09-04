@@ -38,10 +38,12 @@ void netClearCreds() {
   s_ssid = ""; s_pass = ""; WiFi.disconnect(true);
 }
 bool netConnected() { return WiFi.status() == WL_CONNECTED; }
+bool netConfigured() { return s_ssid.length() > 0; }
 
 String netStatus() {
   wl_status_t w = WiFi.status();
-  const char* st = (w == WL_CONNECTED) ? "connected" : (s_ssid.length() ? "connecting" : "unset");
+  // config-only board: creds are stored, not kept connected — so "saved", not "connecting".
+  const char* st = (w == WL_CONNECTED) ? "connected" : (s_ssid.length() ? "saved" : "unset");
   String ip = (w == WL_CONNECTED) ? WiFi.localIP().toString() : String("-");
   return String("wifi:") + (s_ssid.length() ? s_ssid : String("-")) + "|" + st + "|" + ip + "|" + APP_VERSION;
 }

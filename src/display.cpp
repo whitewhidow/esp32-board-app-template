@@ -1,6 +1,7 @@
 // See display.h. Headless boards get no-op stubs (and never touch LovyanGFX).
 #include "display.h"
 #include "board.h"
+#include "version.h"
 
 #if !APP_HAS_DISPLAY
 // ---- Headless: the BLE portal is the UI. Every draw is a no-op. -------------------
@@ -71,9 +72,44 @@ void dispCenter(const char* header, const char* body, uint32_t color) {
   }
 }
 
+// Boot splash — a small graphical intro that scales to the panel (works from the
+// 80px T-Dongle up to the 320px C5s): faint scanlines, a decorative block row with
+// one accent, the APP_NAME title (drop shadow, auto-shrunk to fit the width), a
+// subtitle, an accent underline on big screens, and a version/board footer.
 void dispSplash(const char* version, const char* board) {
+  const int W = lcd.width(), H = lcd.height();
+  const bool big = W >= 240;
+  uint32_t cyan = lcd.color888(0x22,0xD3,0xE0), mag = lcd.color888(0xE8,0x79,0xF9);
+  uint32_t dim  = lcd.color888(0x5A,0x67,0x72), dark = lcd.color888(0x0B,0x2A,0x2E);
   lcd.fillScreen(0x000000u);
-  dispCenter(board, (String("v") + version).c_str(), 0x22D3E0);
+  for (int y = 0; y < H; y += 4) lcd.drawFastHLine(0, y, W, lcd.color888(0x0A,0x12,0x16));
+
+  // decorative block row (one cyan accent), sizes scale with the panel
+  int kw = big ? 18 : 10, kh = big ? 14 : 8, gap = big ? 5 : 3;
+  int kn = (W - 16) / (kw + gap); if (kn > 12) kn = 12; if (kn < 1) kn = 1;
+  int startx = (W - (kn*(kw+gap) - gap)) / 2, ky = (int)(H * 0.16);
+  for (int i = 0; i < kn; i++)
+    lcd.fillRoundRect(startx + i*(kw+gap), ky, kw, kh, 2, (i%5==2) ? cyan : dark);
+
+  // title = APP_NAME, drop shadow, shrunk until it fits (long names on a narrow panel)
+  lcd.setTextDatum(middle_center);
+  int ts = big ? 4 : 2;
+  while (ts > 1) { lcd.setTextSize(ts); if (lcd.textWidth(APP_NAME) <= W - 10) break; ts--; }
+  lcd.setTextSize(ts);
+  lcd.setTextColor(dark); lcd.drawString(APP_NAME, W/2 + 2, H/2 + 2);
+  lcd.setTextColor(cyan); lcd.drawString(APP_NAME, W/2, H/2);
+
+  // subtitle + accent underline (underline only where there's vertical room)
+  lcd.setTextSize(big ? 2 : 1);
+  lcd.setTextColor(mag); lcd.drawString(APP_TAGLINE, W/2, H/2 + (big ? 30 : 14));
+  if (big) { int uw = (int)(W * 0.5); lcd.fillRect((W-uw)/2, H/2 + 46, uw, 2, cyan); }
+
+  // footer: github repo (big screens only) + version/board
+  lcd.setTextSize(1); lcd.setTextColor(dim); lcd.setTextDatum(bottom_center);
+  if (big) lcd.drawString(APP_GH_OWNER "/" APP_GH_REPO, W/2, H - 14);
+  char f[48]; snprintf(f, sizeof(f), "v%s  -  %s", version, board);
+  lcd.drawString(f, W/2, H - 3);
+  lcd.setTextDatum(top_left);
 }
 
 void dispStatus(bool ble, bool wifi, int batt) {

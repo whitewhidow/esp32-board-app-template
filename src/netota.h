@@ -9,7 +9,8 @@ void        netBegin();                                   // load saved creds (n
 void        netConnect();                                 // connect with the saved creds
 void        netSetCreds(const String& ssid, const String& pass);
 void        netClearCreds();
-bool        netConnected();
+bool        netConnected();                               // live WiFi link (up only during OTA)
+bool        netConfigured();                               // creds saved (ready to self-update)
 String      netStatus();                                  // "wifi:<ssid>|<state>|<ip>|<ver>"
 const char* netVersion();
 
