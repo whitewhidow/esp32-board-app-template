@@ -35,6 +35,7 @@
   <span id="hConn" class="chip" style="font-weight:600;color:var(--green)">● connected</span>
   <span id="hVer" class="chip">—</span>
   <span id="hBoard" class="chip"></span>
+  <span id="hBatt" class="chip" hidden></span>
 </div>
 
 <div id="app" hidden>
@@ -101,7 +102,7 @@ for (const t of document.querySelectorAll('.tab')) t.onclick=()=>{
 function onNotify(e){
   const v = new TextDecoder().decode(e.target.value);
   if (v.startsWith('ver:'))  { const [ver,board] = v.slice(4).split('|'); curVer=ver; $('hVer').textContent='v'+ver; $('fwver').textContent='v'+ver; if(board) $('hBoard').textContent=board; refreshOta(); return; }
-  if (v.startsWith('st:'))   return;   // status: WiFi is configure-only, nothing live to show
+  if (v.startsWith('st:'))   { const m=v.match(/batt=(\d+)/); if(m){ $('hBatt').textContent='🔋 '+m[1]+'%'; $('hBatt').hidden=false; } return; }
   if (v.startsWith('wifi:')) { const p=v.slice(5).split('|'); wifiConfigured=(p[0]&&p[0]!=='-'); $('wifiStat').textContent = 'wifi: ' + p.slice(0,2).join(' — '); return; }
   if (v.startsWith('ota:'))  { $('otaStat').textContent = v.slice(4); return; }
   if (v.startsWith('cfg:'))  { renderCfg(v.slice(4)); return; }
@@ -178,7 +179,7 @@ $('connect').onclick = async () => {
     await tx.startNotifications(); tx.addEventListener('characteristicvaluechanged', onNotify);
     $('connect').hidden=true; $('hdr').hidden=false; $('app').hidden=false;
     $('hConn').textContent = dev.name || 'connected';
-    send('__VER__'); setTimeout(()=>send('__WIFIST__'), 400); checkLatest();
+    send('__VER__'); setTimeout(()=>send('__STATUS__'), 200); setTimeout(()=>send('__WIFIST__'), 400); checkLatest();
   } catch(e){ alert('Connect failed: ' + e.message); }
 };
 </script>
