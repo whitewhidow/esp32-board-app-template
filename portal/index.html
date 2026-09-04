@@ -126,8 +126,10 @@ function otaState(){
   return 'current';                    // includes "no release yet" -> treat as up to date
 }
 function refreshOta(){
-  const s=otaState(), btn=$('otaRun');
-  $('hVer').style.color = s==='update' ? 'var(--amber)' : s==='offline' ? 'var(--text)' : 'var(--green)';
+  const s=otaState(), btn=$('otaRun'), badge=$('hVer');
+  badge.style.color  = s==='update' ? 'var(--red)' : s==='offline' ? 'var(--text)' : 'var(--green)';
+  badge.style.cursor = s==='update' ? 'pointer' : 'default';
+  badge.title = s==='update' ? 'Update available — tap to open the Update tab' : '';
   if (s==='update'){ $('fwlatest').textContent='update available: v'+latestVer.replace(/^v/,''); btn.disabled=false; btn.textContent='Update to v'+latestVer.replace(/^v/,''); }
   else if (s==='offline'){ $('fwlatest').textContent='couldn’t check for updates'; btn.disabled=true; btn.textContent='Up to date'; }
   else { $('fwlatest').textContent='up to date'; btn.disabled=true; btn.textContent='Up to date'; }
@@ -153,6 +155,7 @@ $('cfgSave').onclick = async () => {
 };
 
 // ---- actions ----
+$('hVer').onclick = () => { if (otaState()==='update') document.querySelector('.tab[data-tab="update"]').click(); };  // tap the "update available" badge -> Update tab
 $('echoBtn').onclick = () => { const t=$('echo').value; if(t) send('__ECHO__:'+t); };
 $('wifiSave').onclick = () => { const s=$('ssid').value.trim(); if(s){ send('__WIFI__:'+s+'|'+$('wpass').value); wifiConfigured=true; } $('wifiStat').textContent='wifi: saved'; };
 $('wifiClear').onclick = () => { send('__WIFICLR__'); wifiConfigured=false; };
