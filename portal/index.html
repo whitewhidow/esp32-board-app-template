@@ -84,7 +84,7 @@ const SVC='a0b00000-1234-4b0a-9c5e-000000000000';
 const RX ='a0b00001-1234-4b0a-9c5e-000000000000';
 const TX ='a0b00002-1234-4b0a-9c5e-000000000000';
 const $=id=>document.getElementById(id);
-let rxCh=null, latestVer=null, cfgFields=[], wifiConfigured=null;
+let rxCh=null, latestVer=null, curVer='', cfgFields=[], wifiConfigured=null;
 
 function log(m){ const e=$('log'); if(e){ e.textContent+=m+'\n'; e.scrollTop=e.scrollHeight; } }
 function send(s){ return rxCh && rxCh.writeValue(new TextEncoder().encode(s)); }
@@ -100,7 +100,7 @@ for (const t of document.querySelectorAll('.tab')) t.onclick=()=>{
 // ---- incoming notifications ----
 function onNotify(e){
   const v = new TextDecoder().decode(e.target.value);
-  if (v.startsWith('ver:'))  { const [ver,board] = v.slice(4).split('|'); $('hVer').textContent='v'+ver; $('fwver').textContent='v'+ver; if(board) $('hBoard').textContent=board; verColor(); return; }
+  if (v.startsWith('ver:'))  { const [ver,board] = v.slice(4).split('|'); curVer=ver; $('hVer').textContent='v'+ver; $('fwver').textContent='v'+ver; if(board) $('hBoard').textContent=board; refreshOta(); return; }
   if (v.startsWith('st:'))   return;   // status: WiFi is configure-only, nothing live to show
   if (v.startsWith('wifi:')) { const p=v.slice(5).split('|'); wifiConfigured=(p[0]&&p[0]!=='-'); $('wifiStat').textContent = 'wifi: ' + p.slice(0,2).join(' — '); return; }
   if (v.startsWith('ota:'))  { $('otaStat').textContent = v.slice(4); return; }
@@ -112,12 +112,26 @@ function onNotify(e){
 async function checkLatest(){
   try {
     const r = await fetch('https://api.github.com/repos/whitewhidow/esp32-board-app-template/releases/latest',{cache:'no-store'});
-    latestVer = ((await r.json()).tag_name||'').replace(/^v/,'');
-    $('fwlatest').textContent = latestVer ? ('latest v'+latestVer) : '';
-  } catch(e){ latestVer=null; }
-  verColor();
+    latestVer = ((await r.json()).tag_name||'').replace(/^v/,'');   // '' when no release is published
+  } catch(e){ latestVer=null; }                                     // null when the check itself failed
+  refreshOta();
 }
-function verColor(){ const e=$('hVer'); const cur=(e.textContent||'').replace(/^v/,''); e.style.color = latestVer===null?'var(--amber)': (!latestVer||!cur||cur==='—')?'var(--text)': latestVer===cur?'var(--green)':'var(--red)'; }
+
+// One place decides the update state: 'update' (a strictly newer release exists),
+// 'current' (already on latest / no newer release), or 'offline' (couldn't check).
+function otaState(){
+  const cur=(curVer||'').replace(/^v/,''), lat=(latestVer||'').replace(/^v/,'');
+  if (latestVer===null) return 'offline';
+  if (lat && cur && lat!==cur) return 'update';
+  return 'current';                    // includes "no release yet" -> treat as up to date
+}
+function refreshOta(){
+  const s=otaState(), btn=$('otaRun');
+  $('hVer').style.color = s==='update' ? 'var(--amber)' : s==='offline' ? 'var(--text)' : 'var(--green)';
+  if (s==='update'){ $('fwlatest').textContent='update available: v'+latestVer.replace(/^v/,''); btn.disabled=false; btn.textContent='Update to v'+latestVer.replace(/^v/,''); }
+  else if (s==='offline'){ $('fwlatest').textContent='couldn’t check for updates'; btn.disabled=true; btn.textContent='Up to date'; }
+  else { $('fwlatest').textContent='up to date'; btn.disabled=true; btn.textContent='Up to date'; }
+}
 
 // ---- config form (auto-rendered from the firmware's fields) ----
 function renderCfg(json){
@@ -143,8 +157,9 @@ $('echoBtn').onclick = () => { const t=$('echo').value; if(t) send('__ECHO__:'+t
 $('wifiSave').onclick = () => { const s=$('ssid').value.trim(); if(s){ send('__WIFI__:'+s+'|'+$('wpass').value); wifiConfigured=true; } $('wifiStat').textContent='wifi: saved'; };
 $('wifiClear').onclick = () => { send('__WIFICLR__'); wifiConfigured=false; };
 $('otaRun').onclick = async () => {
+  if (otaState()!=='update') { alert('Already up to date — no newer release to install.'); return; }
   if (wifiConfigured===false) { alert('Set WiFi first (WiFi tab) — the board needs it to download the update.'); return; }
-  if (!confirm('Reboot and update to the latest firmware'+(latestVer?' (v'+latestVer+')':'')+'? The board disconnects — watch its screen.')) return;
+  if (!confirm('Reboot and update to v'+latestVer.replace(/^v/,'')+'? The board disconnects — watch its screen.')) return;
   $('otaStat').textContent='rebooting to update…';
   await send('__OTA__'); setTimeout(()=>location.reload(), 2500);   // fresh GATT after the reboot
 };
