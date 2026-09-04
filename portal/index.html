@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Board App — control</title>
+<style>
+  :root { --bg:#0d1117; --panel:#161b22; --border:#30363d; --text:#e6edf3; --muted:#8b949e; --cyan:#22d3e0; --green:#3fb950; --red:#e5484d; --amber:#f7c948; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:16px/1.5 system-ui,sans-serif; background:var(--bg); color:var(--text); padding:20px; max-width:520px; margin:0 auto; }
+  [hidden] { display:none !important; }
+  h1 { font-size:20px; text-align:center; margin:0 0 12px; }
+  .sub { color:var(--muted); font-size:13px; margin:0 0 12px; }
+  button { padding:11px 15px; border:0; border-radius:10px; font-size:15px; font-weight:600; color:#04181b; background:var(--cyan); cursor:pointer; }
+  button.sec { background:transparent; color:var(--text); border:1px solid var(--border); }
+  button.warn { background:transparent; color:var(--amber); border:1px solid #7a5c12; }
+  button:disabled { opacity:.45; }
+  input { width:100%; padding:11px; border-radius:10px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-size:15px; }
+  .row { display:flex; gap:8px; align-items:center; margin:10px 0; }
+  .tabs { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 14px; }
+  .tab { flex:1 1 auto; background:var(--panel); color:var(--muted); border:1px solid var(--border); padding:11px 8px; }
+  .tab.active { background:var(--cyan); color:#04181b; }
+  .chip { border:1px solid var(--border); border-radius:20px; padding:2px 9px; font-size:12px; font-weight:600; }
+  #hdr { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:10px 0 4px; padding:9px 12px; background:var(--panel); border:1px solid var(--border); border-radius:10px; font-size:13px; }
+  label.field { display:block; font-size:12px; color:var(--muted); margin:12px 0 4px; }
+  #log { margin-top:12px; background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:10px; font:12px/1.5 ui-monospace,monospace; white-space:pre-wrap; min-height:40px; max-height:30vh; overflow:auto; }
+</style>
+</head>
+<body>
+<h1>🔧 Board App</h1>
+<button id="connect" style="width:100%">Connect</button>
+
+<div id="hdr" hidden>
+  <span id="hConn" style="font-weight:600;color:var(--green)">● connected</span>
+  <span id="hVer" class="chip">—</span>
+  <span id="hBoard" class="chip"></span>
+  <span id="hWifi" style="margin-left:auto;color:var(--muted);font-weight:600">WIFI</span>
+</div>
+
+<div id="app" hidden>
+  <div class="tabs">
+    <button class="tab active" data-tab="home">Home</button>
+    <button class="tab" data-tab="wifi">WiFi</button>
+    <button class="tab" data-tab="update">Update</button>
+    <button class="tab" data-tab="config">Config</button>
+  </div>
+
+  <section id="t-home">
+    <div class="sub">Demo: send text to the board (it shows on the screen &amp; acks).</div>
+    <div class="row"><input id="echo" placeholder="text to show on the board"><button id="echoBtn">Send</button></div>
+    <div id="log"></div>
+  </section>
+
+  <section id="t-wifi" hidden>
+    <div class="sub">WiFi is only used for firmware updates — it's <b>configured</b> here and brought up by the board at the update reboot.</div>
+    <div id="wifiStat" class="sub">wifi: —</div>
+    <input id="ssid" placeholder="WiFi SSID" style="margin-bottom:8px">
+    <input id="wpass" type="password" placeholder="WiFi password" style="margin-bottom:8px">
+    <div class="row"><button id="wifiSave" style="flex:1">Save</button><button id="wifiClear" class="warn">Forget</button></div>
+  </section>
+
+  <section id="t-update" hidden>
+    <div class="sub">Firmware: <b id="fwver">—</b> · <span id="fwlatest"></span></div>
+    <div class="sub">Reboots and flashes the latest release over WiFi at a clean heap, then boots it — the board disconnects, so watch its screen (or wait for it to re-advertise).</div>
+    <button id="otaRun" class="warn" style="width:100%">Update firmware</button>
+    <div id="otaStat" class="sub" style="margin-top:8px"></div>
+  </section>
+
+  <section id="t-config" hidden>
+    <div class="sub">Stored on the board (NVS). Fields come from the firmware's config.cpp.</div>
+    <div id="cfgForm"></div>
+    <button id="cfgSave" style="width:100%;margin-top:10px">Save config</button>
+    <div id="cfgMsg" class="sub" style="margin-top:6px"></div>
+  </section>
+</div>
+
+<script>
+const SVC='a0b00000-1234-4b0a-9c5e-000000000000';
+const RX ='a0b00001-1234-4b0a-9c5e-000000000000';
+const TX ='a0b00002-1234-4b0a-9c5e-000000000000';
+const $=id=>document.getElementById(id);
+let rxCh=null, latestVer=null, cfgFields=[];
+
+function log(m){ const e=$('log'); if(e){ e.textContent+=m+'\n'; e.scrollTop=e.scrollHeight; } }
+function send(s){ return rxCh && rxCh.writeValue(new TextEncoder().encode(s)); }
+
+// ---- tabs ----
+for (const t of document.querySelectorAll('.tab')) t.onclick=()=>{
+  for (const x of document.querySelectorAll('.tab')) x.classList.toggle('active', x===t);
+  for (const id of ['home','wifi','update','config']) $('t-'+id).hidden = (id!==t.dataset.tab);
+  if (t.dataset.tab==='update') checkLatest();
+  if (t.dataset.tab==='config') send('__CFGGET__');
+};
+
+// ---- incoming notifications ----
+function onNotify(e){
+  const v = new TextDecoder().decode(e.target.value);
+  if (v.startsWith('ver:'))  { const [ver,board] = v.slice(4).split('|'); $('hVer').textContent='v'+ver; $('fwver').textContent='v'+ver; if(board) $('hBoard').textContent=board; verColor(); return; }
+  if (v.startsWith('st:'))   { const m=/wifi=(\d)/.exec(v); if(m){ $('hWifi').style.color = m[1]==='1'?'var(--green)':'var(--muted)'; } return; }
+  if (v.startsWith('wifi:')) { $('wifiStat').textContent = 'wifi: ' + v.slice(5).split('|').slice(0,2).join(' — '); return; }
+  if (v.startsWith('ota:'))  { $('otaStat').textContent = v.slice(4); return; }
+  if (v.startsWith('cfg:'))  { renderCfg(v.slice(4)); return; }
+  log('board: ' + v);
+}
+
+// ---- version badge colour vs GitHub latest ----
+async function checkLatest(){
+  try {
+    const r = await fetch('https://api.github.com/repos/whitewhidow/esp32-board-app-template/releases/latest',{cache:'no-store'});
+    latestVer = ((await r.json()).tag_name||'').replace(/^v/,'');
+    $('fwlatest').textContent = latestVer ? ('latest v'+latestVer) : '';
+  } catch(e){ latestVer=null; }
+  verColor();
+}
+function verColor(){ const e=$('hVer'); const cur=(e.textContent||'').replace(/^v/,''); e.style.color = latestVer===null?'var(--amber)': (!latestVer||!cur||cur==='—')?'var(--text)': latestVer===cur?'var(--green)':'var(--red)'; }
+
+// ---- config form (auto-rendered from the firmware's fields) ----
+function renderCfg(json){
+  try { cfgFields = JSON.parse(json); } catch(e){ return; }
+  let h='';
+  for (const f of cfgFields){
+    if (f.t==='b') h += `<label class="row" style="cursor:pointer"><input type="checkbox" id="c_${f.k}" ${f.v==='1'?'checked':''} style="width:auto"><span style="color:var(--muted)">${f.l}</span></label>`;
+    else h += `<label class="field">${f.l}</label><input id="c_${f.k}" type="${f.t==='n'?'number':'text'}" value="${(f.v||'').replace(/"/g,'&quot;')}">`;
+  }
+  $('cfgForm').innerHTML = h;
+}
+$('cfgSave').onclick = async () => {
+  $('cfgMsg').textContent='saving…';
+  for (const f of cfgFields){ const el=$('c_'+f.k); if(!el) continue;
+    const val = f.t==='b' ? (el.checked?'1':'0') : el.value;
+    await send('__CFGSET__:'+f.k+'='+val); await new Promise(r=>setTimeout(r,120));
+  }
+  $('cfgMsg').textContent='saved ✓';
+};
+
+// ---- actions ----
+$('echoBtn').onclick = () => { const t=$('echo').value; if(t) send('__ECHO__:'+t); };
+$('wifiSave').onclick = () => { const s=$('ssid').value.trim(); if(s) send('__WIFI__:'+s+'|'+$('wpass').value); $('wifiStat').textContent='wifi: saved'; };
+$('wifiClear').onclick = () => { send('__WIFICLR__'); };
+$('otaRun').onclick = async () => {
+  if (!confirm('Reboot and update to the latest firmware'+(latestVer?' (v'+latestVer+')':'')+'? The board disconnects — watch its screen.')) return;
+  $('otaStat').textContent='rebooting to update…';
+  await send('__OTA__'); setTimeout(()=>location.reload(), 2500);   // fresh GATT after the reboot
+};
+
+// ---- connect ----
+$('connect').onclick = async () => {
+  try {
+    const dev = await navigator.bluetooth.requestDevice({ filters:[{ services:[SVC] }] });
+    const gatt = await dev.gatt.connect();
+    const svc = await gatt.getPrimaryService(SVC);
+    rxCh = await svc.getCharacteristic(RX);
+    const tx = await svc.getCharacteristic(TX);
+    await tx.startNotifications(); tx.addEventListener('characteristicvaluechanged', onNotify);
+    $('connect').hidden=true; $('hdr').hidden=false; $('app').hidden=false;
+    $('hConn').textContent = '● ' + (dev.name || 'connected');
+    send('__VER__'); setTimeout(()=>send('__WIFIST__'), 400); checkLatest();
+  } catch(e){ alert('Connect failed: ' + e.message); }
+};
+</script>
+</body>
+</html>
