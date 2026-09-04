@@ -5,3 +5,4 @@
 !flasher/fw/**/*.bin
 # secrets: a gitignored dev_secrets.h can override the OTA URL for local testing.
 src/dev_secrets.h
+src/idf_component.yml
