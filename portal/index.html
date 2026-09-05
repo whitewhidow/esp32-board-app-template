@@ -121,7 +121,7 @@ for (const t of document.querySelectorAll('.tab')) t.onclick=()=>{
   for (const x of document.querySelectorAll('.tab')) x.classList.toggle('active', x===t);
   for (const id of ['editor','config','wifi','update']) $('t-'+id).hidden = (id!==t.dataset.tab);
   if (t.dataset.tab==='update') { checkLatest(); send('__WIFIST__'); }
-  if (t.dataset.tab==='config') send('__CFGGET__');
+  if (t.dataset.tab==='config') reqRetry('__CFGGET__','cfg:').then(v=>renderCfg(v.slice(4))).catch(()=>{});
 };
 
 // ---- incoming notifications ----
