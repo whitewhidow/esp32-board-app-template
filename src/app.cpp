@@ -7,6 +7,7 @@
 #include "app.h"
 #include "ble_control.h"
 #include "display.h"
+#include "led.h"
 #include <Arduino.h>
 #include <LittleFS.h>
 #include "mbedtls/base64.h"
@@ -87,6 +88,7 @@ bool appHandleCommand(const char* cmd) {
       else LittleFS.remove(NOTE_TMP);              // never clobber with an empty file
     }
     dispCenter("NOTE", (String(sz) + " bytes saved").c_str(), 0x3FB950);
+    ledFlash(1500);   // demo: green blink on save (no-op on boards without an LED)
     bleNotify((String("note:done:") + sz).c_str());
     return true;
   }
