@@ -49,7 +49,7 @@
 
   <section id="t-editor">
     <div class="sub">Demo: a text file stored in the board's LittleFS, edited over BLE (chunked + acked). Load it, change it, Save.</div>
-    <div class="row"><button id="noteLoad" class="sec">Load</button><span style="flex:1"></span><span id="noteMsg" class="sub" style="margin:0"></span></div>
+    <div class="row"><button id="noteLoad" class="sec">Load</button><button id="noteDefault" class="sec">Restore default</button><span style="flex:1"></span><span id="noteMsg" class="sub" style="margin:0"></span></div>
     <textarea id="noteTxt" placeholder="Load the note to edit it…" spellcheck="false"></textarea>
     <button id="noteSave" style="width:100%">Save to board</button>
   </section>
@@ -168,6 +168,12 @@ async function noteSave(){
 }
 $('noteLoad').onclick=noteLoad;
 $('noteSave').onclick=noteSave;
+$('noteDefault').onclick=async()=>{
+  if(!confirm('Restore the note to its built-in default? Overwrites the current note.')) return;
+  $('noteMsg').textContent='restoring…';
+  try { await req('__NOTEDEFAULT__','note:default'); await noteLoad(); }
+  catch(e){ $('noteMsg').textContent='restore failed: '+e.message; }
+};
 
 // ---- version badge colour vs GitHub latest ----
 async function checkLatest(){

@@ -13,6 +13,7 @@
 
 #define NOTE_FILE "/note.txt"
 #define NOTE_TMP  "/note.tmp"
+#define NOTE_DEFAULT "Hello from LittleFS!\nEdit this over BLE and press Save."
 #define RAW_CHUNK 120     // raw bytes per chunk; base64 -> ~160 chars, fits the 320B RX buffer + BLE MTU
 
 // --- base64 (each chunk is encoded standalone so it decodes independently) ---
@@ -37,7 +38,7 @@ void appSetup() {
   Serial.printf("[app] LittleFS %s\n", fs ? "mounted" : "MOUNT FAILED");
   if (!LittleFS.exists(NOTE_FILE)) {
     File f = LittleFS.open(NOTE_FILE, FILE_WRITE);
-    if (f) { f.print("Hello from LittleFS!\nEdit this over BLE and press Save."); f.close(); }
+    if (f) { f.print(NOTE_DEFAULT); f.close(); }
   }
 }
 
@@ -68,6 +69,12 @@ bool appHandleCommand(const char* cmd) {
     bool ok = s_put && n && (s_put.write(raw, n) == n);
     if (ok) s_upTotal += n;
     bleNotify(ok ? (String("note:ack:") + s_upTotal).c_str() : "note:ack:err");
+    return true;
+  }
+  if (!strcmp(cmd, "__NOTEDEFAULT__")) {                   // restore the note to its built-in default
+    File f = LittleFS.open(NOTE_FILE, FILE_WRITE);
+    if (f) { f.print(NOTE_DEFAULT); f.close(); }
+    bleNotify("note:default");
     return true;
   }
   if (!strcmp(cmd, "__NOTEEND__")) {                       // commit temp -> live (size read AFTER close)
