@@ -33,7 +33,7 @@ void setup() {
 #endif
 
   if (showSplash) delay(1500);       // only linger if we showed it
-  dispCenter(APP_BOARD_NAME, (String("v") + APP_VERSION + "\nready").c_str(), 0x3FB950);
+  dispCenter(APP_BOARD_NAME, (String("v") + APP_VERSION + "  ready\nopen on phone:\n" APP_PAGE_URL).c_str(), 0x3FB950);
   dispStatus(bleConnected(), netConfigured(), batteryPct());   // WiFi badge = creds saved (config-only board)
 }
 
