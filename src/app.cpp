@@ -32,9 +32,10 @@ static File   s_put;         // temp file open during an upload
 static size_t s_upTotal = 0;
 
 void appSetup() {
-  // The FS partition is named "spiffs" (see partitions-*.csv), so the default
-  // LittleFS.begin() finds it. formatOnFail=true makes first boot self-heal.
-  bool fs = LittleFS.begin(true);
+  // Mount the "littlefs" data partition by label (the canonical family table also has a
+  // separate "spiffs" for bboink's config, so don't rely on the default first-spiffs match).
+  // formatOnFail=true makes first boot self-heal.
+  bool fs = LittleFS.begin(true, "/littlefs", 10, "littlefs");
   Serial.printf("[app] LittleFS %s\n", fs ? "mounted" : "MOUNT FAILED");
   if (!LittleFS.exists(NOTE_FILE)) {
     File f = LittleFS.open(NOTE_FILE, FILE_WRITE);
