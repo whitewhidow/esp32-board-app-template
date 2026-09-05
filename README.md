@@ -31,11 +31,11 @@ so a new app is mostly `app.cpp`.
 | env | board | chip | display | notes |
 |-----|-------|------|---------|-------|
 | `s3-headless`  | Generic ESP32-S3 (8MB) | S3 | none | BLE-only; the simplest start |
-| `tembed`       | LilyGo T-Embed CC1101  | S3 | ST7789 320×170 | |
-| `tdongle`      | LilyGo T-Dongle S3     | S3 | ST7735S 80×160 | |
+| `tembed-cc1101` | LilyGo T-Embed CC1101 | S3 | ST7789 320×170 | |
+| `tdongle-s3`    | LilyGo T-Dongle S3    | S3 | ST7735S 80×160 | |
 | `cardputer`    | M5Cardputer ADV        | S3 | ST7789 135×240 | `board = m5stack-stamps3` (required) |
-| `tdisplay-c5`  | LilyGo T-Display C5    | C5 | (headless for now) | pins in board.h |
-| `waveshare-c5` | Waveshare C5-LCD-1.47  | C5 | (headless for now) | pins in board.h |
+| `tdisplay-c5`  | LilyGo T-Display C5   | C5 | ST7789 320×170 | |
+| `waveshare-c5` | Waveshare C5-LCD-1.47 | C5 | ST7789 320×172 | |
 
 ## Use it
 
