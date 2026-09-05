@@ -62,3 +62,16 @@ fails and nothing you write persists.
 Also: read a file's size **after** closing the write handle. `File.size()` on a
 still-open write handle can report 0, so guard commits (`rename`) on a non-zero size
 to avoid clobbering a good file with an empty one — see `app.cpp` `__NOTEEND__`.
+
+## Firmware switcher (hop between sibling apps over OTA)
+
+The template ships a generic switcher: the portal's **3-tap on the board chip** →
+"Switch firmware" list → the board reboots and flashes a sibling app's release bin
+into the spare A/B slot (same reboot-to-fetch path as self-update; only the URL
+differs). It's **off until you populate `src/switch_targets.h`** (empty by default →
+the picker just says "no targets"). To join a mesh:
+
+- Fill `SWITCH_TARGETS` per board with the siblings' `releases/latest/download/…-app-<env>.bin` URLs.
+- Give **each** app a **distinct `APP_BLE_MAC_TAG`** (`board.h`) or the host serves a stale GATT cache after the hop.
+- Every target must share this app's **chip + identical A/B partition table** (app slots at the same offsets) and publish an app-only bin for the matching env. 4MB single-app boards (no spare slot) can't switch — the fetch errors cleanly.
+- **Data:** NVS config survives a switch; **LittleFS does not** (each app format-mounts its own FS). Sync/export anything important before switching.
