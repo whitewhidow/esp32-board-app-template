@@ -16,7 +16,8 @@
   button.sec { background:transparent; color:var(--text); border:1px solid var(--border); }
   button.warn { background:transparent; color:var(--amber); border:1px solid #7a5c12; }
   button:disabled { opacity:.45; }
-  input { width:100%; padding:11px; border-radius:10px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-size:15px; }
+  input, textarea { width:100%; padding:11px; border-radius:10px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-size:15px; }
+  textarea { font:12px/1.45 ui-monospace,monospace; min-height:40vh; resize:vertical; white-space:pre; }
   .row { display:flex; gap:8px; align-items:center; margin:10px 0; }
   .tabs { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 14px; }
   .tab { flex:1 1 auto; background:var(--panel); color:var(--muted); border:1px solid var(--border); padding:11px 8px; }
@@ -24,7 +25,7 @@
   .chip { border:1px solid var(--border); border-radius:20px; padding:2px 9px; font-size:12px; font-weight:600; }
   #hdr { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:10px 0 4px; padding:9px 12px; background:var(--panel); border:1px solid var(--border); border-radius:10px; font-size:13px; }
   label.field { display:block; font-size:12px; color:var(--muted); margin:12px 0 4px; }
-  #log { margin-top:12px; background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:10px; font:12px/1.5 ui-monospace,monospace; white-space:pre-wrap; min-height:40px; max-height:30vh; overflow:auto; }
+  #log { margin-top:12px; background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:10px; font:12px/1.5 ui-monospace,monospace; white-space:pre-wrap; min-height:34px; max-height:24vh; overflow:auto; }
 </style>
 </head>
 <body>
@@ -40,20 +41,28 @@
 
 <div id="app" hidden>
   <div class="tabs">
-    <button class="tab active" data-tab="home">Home</button>
+    <button class="tab active" data-tab="editor">Editor</button>
     <button class="tab" data-tab="config">Config</button>
     <button class="tab" data-tab="wifi">WiFi</button>
     <button class="tab" data-tab="update">Update</button>
   </div>
 
-  <section id="t-home">
-    <div class="sub">Demo: send text to the board (it shows on the screen &amp; acks).</div>
-    <div class="row"><input id="echo" placeholder="text to show on the board"><button id="echoBtn">Send</button></div>
-    <div id="log"></div>
+  <section id="t-editor">
+    <div class="sub">Demo: a text file stored in the board's LittleFS, edited over BLE (chunked + acked). Load it, change it, Save.</div>
+    <div class="row"><button id="noteLoad" class="sec">Load</button><span style="flex:1"></span><span id="noteMsg" class="sub" style="margin:0"></span></div>
+    <textarea id="noteTxt" placeholder="Load the note to edit it…" spellcheck="false"></textarea>
+    <button id="noteSave" style="width:100%">Save to board</button>
+  </section>
+
+  <section id="t-config" hidden>
+    <div class="sub">Stored on the board (NVS). Fields come from the firmware's config.cpp.</div>
+    <div id="cfgForm"></div>
+    <button id="cfgSave" style="width:100%;margin-top:10px">Save config</button>
+    <div id="cfgMsg" class="sub" style="margin-top:6px"></div>
   </section>
 
   <section id="t-wifi" hidden>
-    <div class="sub">WiFi is only used for firmware updates — it's <b>configured</b> here and brought up by the board at the update reboot.</div>
+    <div class="sub">WiFi is only used for firmware updates — configured here, brought up by the board at the update reboot.</div>
     <div id="wifiStat" class="sub">wifi: —</div>
     <input id="ssid" placeholder="WiFi SSID" style="margin-bottom:8px">
     <input id="wpass" type="password" placeholder="WiFi password" style="margin-bottom:8px">
@@ -67,12 +76,7 @@
     <div id="otaStat" class="sub" style="margin-top:8px"></div>
   </section>
 
-  <section id="t-config" hidden>
-    <div class="sub">Stored on the board (NVS). Fields come from the firmware's config.cpp.</div>
-    <div id="cfgForm"></div>
-    <button id="cfgSave" style="width:100%;margin-top:10px">Save config</button>
-    <div id="cfgMsg" class="sub" style="margin-top:6px"></div>
-  </section>
+  <div id="log"></div>
 </div>
 
 <script>
@@ -90,10 +94,21 @@ let rxCh=null, latestVer=null, curVer='', cfgFields=[], wifiConfigured=null;
 function log(m){ const e=$('log'); if(e){ e.textContent+=m+'\n'; e.scrollTop=e.scrollHeight; } }
 function send(s){ return rxCh && rxCh.writeValue(new TextEncoder().encode(s)); }
 
+// ---- request/response over BLE: send a command, await the reply that starts with `prefix` ----
+let waiters=[];
+function waitFor(prefix, ms=5000){
+  return new Promise((resolve,reject)=>{
+    const w={prefix,resolve};
+    w.timer=setTimeout(()=>{ waiters=waiters.filter(x=>x!==w); reject(new Error('timeout: '+prefix)); }, ms);
+    waiters.push(w);
+  });
+}
+async function req(cmd, prefix){ const p=waitFor(prefix); await send(cmd); return p; }
+
 // ---- tabs ----
 for (const t of document.querySelectorAll('.tab')) t.onclick=()=>{
   for (const x of document.querySelectorAll('.tab')) x.classList.toggle('active', x===t);
-  for (const id of ['home','wifi','update','config']) $('t-'+id).hidden = (id!==t.dataset.tab);
+  for (const id of ['editor','config','wifi','update']) $('t-'+id).hidden = (id!==t.dataset.tab);
   if (t.dataset.tab==='update') { checkLatest(); send('__WIFIST__'); }
   if (t.dataset.tab==='config') send('__CFGGET__');
 };
@@ -101,6 +116,7 @@ for (const t of document.querySelectorAll('.tab')) t.onclick=()=>{
 // ---- incoming notifications ----
 function onNotify(e){
   const v = new TextDecoder().decode(e.target.value);
+  for (const w of waiters.slice()) if (v.startsWith(w.prefix)) { clearTimeout(w.timer); waiters=waiters.filter(x=>x!==w); w.resolve(v); return; }
   if (v.startsWith('ver:'))  { const [ver,board] = v.slice(4).split('|'); curVer=ver; $('hVer').textContent='v'+ver; $('fwver').textContent='v'+ver; if(board) $('hBoard').textContent=board; refreshOta(); return; }
   if (v.startsWith('st:'))   { const m=v.match(/batt=(\d+)/); if(m){ $('hBatt').textContent='🔋 '+m[1]+'%'; $('hBatt').hidden=false; } return; }
   if (v.startsWith('wifi:')) { const p=v.slice(5).split('|'); wifiConfigured=(p[0]&&p[0]!=='-'); $('wifiStat').textContent = 'wifi: ' + p.slice(0,2).join(' — '); return; }
@@ -109,29 +125,59 @@ function onNotify(e){
   log('board: ' + v);
 }
 
+// ================= LittleFS note editor (chunked file transfer over BLE) =================
+async function noteLoad(){
+  $('noteMsg').textContent='loading…'; $('noteTxt').value='';
+  try {
+    let off=0,total=1,buf=[];
+    while (off<total){
+      const line=await req('__NOTEGET__:'+off,'note:');
+      const m=line.match(/^note:(\d+):(\d+):(.*)$/); if(!m) break;
+      const nextoff=+m[1]; total=+m[2]; const b64=m[3];
+      if (b64){ const bin=atob(b64); for(let i=0;i<bin.length;i++) buf.push(bin.charCodeAt(i)); }
+      if (nextoff<=off) break; off=nextoff;
+    }
+    $('noteTxt').value=new TextDecoder('utf-8').decode(new Uint8Array(buf));
+    $('noteMsg').textContent=buf.length?('loaded '+buf.length+' B'):'empty';
+  } catch(e){ $('noteMsg').textContent='load failed: '+e.message; }
+}
+async function noteSave(){
+  const bytes=new TextEncoder().encode($('noteTxt').value);
+  $('noteMsg').textContent='saving…';
+  try {
+    const r=await req('__NOTEPUT__','note:'); if(r!=='note:ready') throw new Error('not ready');
+    const CH=120;
+    for (let i=0;i<bytes.length;i+=CH){
+      const chunk=bytes.slice(i,i+CH); let bin=''; chunk.forEach(b=>bin+=String.fromCharCode(b));
+      await req('__NOTEADD__:'+btoa(bin),'note:ack');
+      $('noteMsg').textContent='saving… '+Math.round(100*Math.min(i+CH,bytes.length)/Math.max(bytes.length,1))+'%';
+    }
+    const done=await req('__NOTEEND__','note:done');
+    $('noteMsg').textContent='saved ✓ ('+done.slice(10)+' B on board)';
+  } catch(e){ $('noteMsg').textContent='save failed: '+e.message; }
+}
+$('noteLoad').onclick=noteLoad;
+$('noteSave').onclick=noteSave;
+
 // ---- version badge colour vs GitHub latest ----
 async function checkLatest(){
   try {
     const r = await fetch('https://api.github.com/repos/whitewhidow/esp32-board-app-template/releases/latest',{cache:'no-store'});
-    latestVer = ((await r.json()).tag_name||'').replace(/^v/,'');   // '' when no release is published
-  } catch(e){ latestVer=null; }                                     // null when the check itself failed
+    latestVer = ((await r.json()).tag_name||'').replace(/^v/,'');
+  } catch(e){ latestVer=null; }
   refreshOta();
 }
-
-// One place decides the update state: 'update' (a strictly newer release exists),
-// 'current' (already on latest / no newer release), or 'offline' (couldn't check).
 function otaState(){
   const cur=(curVer||'').replace(/^v/,''), lat=(latestVer||'').replace(/^v/,'');
   if (latestVer===null) return 'offline';
   if (lat && cur && lat!==cur) return 'update';
-  return 'current';                    // includes "no release yet" -> treat as up to date
+  return 'current';
 }
 function refreshOta(){
   const s=otaState(), btn=$('otaRun'), badge=$('hVer');
   badge.style.color  = s==='update' ? 'var(--red)' : s==='offline' ? 'var(--text)' : 'var(--green)';
   badge.style.cursor = s==='update' ? 'pointer' : 'default';
-  badge.title = s==='update' ? 'Update available — tap to open the Update tab' : '';
-  if (s==='update'){ $('fwlatest').textContent='update available: v'+latestVer.replace(/^v/,''); btn.disabled=false; btn.textContent='Update to v'+latestVer.replace(/^v/,''); }
+  if (s==='update'){ $('fwlatest').textContent='update available: v'+latestVer; btn.disabled=false; btn.textContent='Update to v'+latestVer; }
   else if (s==='offline'){ $('fwlatest').textContent='couldn’t check for updates'; btn.disabled=true; btn.textContent='Up to date'; }
   else { $('fwlatest').textContent='up to date'; btn.disabled=true; btn.textContent='Up to date'; }
 }
@@ -156,16 +202,15 @@ $('cfgSave').onclick = async () => {
 };
 
 // ---- actions ----
-$('hVer').onclick = () => { if (otaState()==='update') document.querySelector('.tab[data-tab="update"]').click(); };  // tap the "update available" badge -> Update tab
-$('echoBtn').onclick = () => { const t=$('echo').value; if(t) send('__ECHO__:'+t); };
+$('hVer').onclick = () => { if (otaState()==='update') document.querySelector('.tab[data-tab="update"]').click(); };
 $('wifiSave').onclick = () => { const s=$('ssid').value.trim(); if(s){ send('__WIFI__:'+s+'|'+$('wpass').value); wifiConfigured=true; } $('wifiStat').textContent='wifi: saved'; };
 $('wifiClear').onclick = () => { send('__WIFICLR__'); wifiConfigured=false; };
 $('otaRun').onclick = async () => {
   if (otaState()!=='update') { alert('Already up to date — no newer release to install.'); return; }
   if (wifiConfigured===false) { alert('Set WiFi first (WiFi tab) — the board needs it to download the update.'); return; }
-  if (!confirm('Reboot and update to v'+latestVer.replace(/^v/,'')+'? The board disconnects — watch its screen.')) return;
+  if (!confirm('Reboot and update to v'+latestVer+'? The board disconnects — watch its screen.')) return;
   $('otaStat').textContent='rebooting to update…';
-  await send('__OTA__'); setTimeout(()=>location.reload(), 2500);   // fresh GATT after the reboot
+  await send('__OTA__'); setTimeout(()=>location.reload(), 2500);
 };
 
 // ---- connect ----
@@ -180,6 +225,7 @@ $('connect').onclick = async () => {
     $('connect').hidden=true; $('hdr').hidden=false; $('app').hidden=false;
     $('hConn').textContent = dev.name || 'connected';
     send('__VER__'); setTimeout(()=>send('__STATUS__'), 200); setTimeout(()=>send('__WIFIST__'), 400); checkLatest();
+    setTimeout(noteLoad, 600);
   } catch(e){ alert('Connect failed: ' + e.message); }
 };
 </script>

@@ -50,6 +50,7 @@ void bleBegin(const char* advName) {
   if (esp_efuse_mac_get_default(mac) == ESP_OK) { mac[5] ^= APP_BLE_MAC_TAG; esp_base_mac_addr_set(mac); }
 
   NimBLEDevice::init(advName);
+  NimBLEDevice::setMTU(517);                                 // allow large notifies (config JSON, file chunks)
   NimBLEDevice::setSecurityAuth(true, false, true);         // bond, no MITM, SC
   NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
   NimBLEServer* server = NimBLEDevice::createServer();

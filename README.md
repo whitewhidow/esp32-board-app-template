@@ -51,4 +51,4 @@ so a new app is mostly `app.cpp`.
    settings in **`config.cpp`** (`CFG_FIELDS`).
 5. Release: `git tag v0.1.0 && git push --tags` — CI publishes bins + the flasher.
 
-The demo app just echoes text from the portal onto the board's screen, to show the wiring.
+The demo app edits a text file stored in LittleFS over BLE (Editor tab) — showing persistent storage + moving a payload bigger than one BLE packet (chunked, base64, acked).

@@ -49,3 +49,16 @@ Hard-won lessons baked into this template. Read before you fight them again.
 - **Never tag / cut a release without an explicit go.** Committing + pushing to `main`
   (incl. Pages deploys) is fine; `git tag vX.Y.Z` triggers the release build + flasher
   publish. Test first, tag on purpose.
+
+## LittleFS partition must be named `spiffs`
+
+Arduino's `LittleFS.begin()` looks for a partition **named** `spiffs` by default
+(the subtype is also `spiffs` — LittleFS reuses it). The partition tables here name
+the FS partition `spiffs` for exactly this reason, so `LittleFS.begin(true)` mounts
+with no arguments. If you rename it (e.g. to `littlefs`), you must pass the label:
+`LittleFS.begin(true, "/littlefs", 10, "littlefs")` — otherwise the mount silently
+fails and nothing you write persists.
+
+Also: read a file's size **after** closing the write handle. `File.size()` on a
+still-open write handle can report 0, so guard commits (`rename`) on a non-zero size
+to avoid clobbering a good file with an empty one — see `app.cpp` `__NOTEEND__`.
