@@ -19,7 +19,16 @@ static NimBLECharacteristic* s_tx = nullptr;
 static char          g_cmd[320] = "";
 static volatile bool g_cmdReq   = false;
 static bool          g_connected = false;
+static uint16_t      g_connHandle = BLE_HS_CONN_HANDLE_NONE;   // for the link RSSI
 static char          g_mac[18]  = "";
+
+// Link RSSI (dBm) of the phone connection, read on the peripheral side (Web Bluetooth
+// can't read connection RSSI on the phone). 0 = not connected / unavailable.
+int bleRssi() {
+  if (!g_connected || g_connHandle == BLE_HS_CONN_HANDLE_NONE) return 0;
+  int8_t rssi = 0;
+  return (ble_gap_conn_rssi(g_connHandle, &rssi) == 0) ? (int)rssi : 0;
+}
 
 // GOTCHA: setValue()+notify() has no flush, so two rapid notifies RACE (the 2nd
 // clobbers the 1st). Always send ONE line per response; pack multiple fields with a
@@ -39,8 +48,8 @@ class RxCB : public NimBLECharacteristicCallbacks {
   }
 };
 class SrvCB : public NimBLEServerCallbacks {
-  void onConnect(NimBLEServer* s, NimBLEConnInfo&) override { g_connected = true; }
-  void onDisconnect(NimBLEServer* s, NimBLEConnInfo&, int) override { g_connected = false; NimBLEDevice::startAdvertising(); }
+  void onConnect(NimBLEServer* s, NimBLEConnInfo& ci) override { g_connected = true; g_connHandle = ci.getConnHandle(); }
+  void onDisconnect(NimBLEServer* s, NimBLEConnInfo&, int) override { g_connected = false; g_connHandle = BLE_HS_CONN_HANDLE_NONE; NimBLEDevice::startAdvertising(); }
 };
 
 void bleBegin(const char* advName) {
@@ -79,7 +88,7 @@ static void handleCmd(const char* cmd) {
   if (!strcmp(cmd, "__VER__")) {
     bleNotify((String("ver:") + APP_VERSION + "|" + APP_BOARD_NAME).c_str());   // ONE notify
   } else if (!strcmp(cmd, "__STATUS__")) {
-    char b[48]; snprintf(b, sizeof(b), "st:ble=1:wifi=%d:batt=%d", netConfigured()?1:0, batteryPct()); bleNotify(b);
+    char b[48]; snprintf(b, sizeof(b), "st:ble=1:wifi=%d:batt=%d:rssi=%d", netConfigured()?1:0, batteryPct(), bleRssi()); bleNotify(b);
   } else if (!strcmp(cmd, "__WIFIST__")) {
     bleNotify(netStatus().c_str());
   } else if (!strncmp(cmd, "__WIFI__:", 9)) {                 // "__WIFI__:ssid|pass"
@@ -117,9 +126,9 @@ void bleTick() {
   static int8_t lastW = -1, lastB = -1; static uint32_t lastPush = 0;
   if (g_connected) {
     int8_t w = netConfigured() ? 1 : 0, b = batteryPct();   // config-only board: green = creds saved
-    if (w != lastW || b/5 != lastB/5 || millis() - lastPush > 30000) {
+    if (w != lastW || b/5 != lastB/5 || millis() - lastPush > 5000) {   // 5s refresh keeps RSSI live
       lastW = w; lastB = b; lastPush = millis();
-      char m[48]; snprintf(m, sizeof(m), "st:ble=1:wifi=%d:batt=%d", w, b); bleNotify(m);
+      char m[48]; snprintf(m, sizeof(m), "st:ble=1:wifi=%d:batt=%d:rssi=%d", w, b, bleRssi()); bleNotify(m);
     }
   } else { lastW = -1; lastB = -1; }
 }
