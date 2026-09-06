@@ -88,7 +88,7 @@ static void handleCmd(const char* cmd) {
   if (!strcmp(cmd, "__VER__")) {
     bleNotify((String("ver:") + APP_VERSION + "|" + APP_BOARD_NAME).c_str());   // ONE notify
   } else if (!strcmp(cmd, "__STATUS__")) {
-    char b[48]; snprintf(b, sizeof(b), "st:ble=1:wifi=%d:batt=%d:rssi=%d", netConfigured()?1:0, batteryPct(), bleRssi()); bleNotify(b);
+    char b[64]; snprintf(b, sizeof(b), "st:ble=1:wifi=%d:batt=%d:rssi=%d:up=%lu", netConfigured()?1:0, batteryPct(), bleRssi(), (unsigned long)(millis()/1000)); bleNotify(b);
   } else if (!strcmp(cmd, "__WIFIST__")) {
     bleNotify(netStatus().c_str());
   } else if (!strncmp(cmd, "__WIFI__:", 9)) {                 // "__WIFI__:ssid|pass"
@@ -135,7 +135,7 @@ void bleTick() {
     int8_t w = netConfigured() ? 1 : 0, b = batteryPct();   // config-only board: green = creds saved
     if (w != lastW || b/5 != lastB/5 || millis() - lastPush > 5000) {   // 5s refresh keeps RSSI live
       lastW = w; lastB = b; lastPush = millis();
-      char m[48]; snprintf(m, sizeof(m), "st:ble=1:wifi=%d:batt=%d:rssi=%d", w, b, bleRssi()); bleNotify(m);
+      char m[64]; snprintf(m, sizeof(m), "st:ble=1:wifi=%d:batt=%d:rssi=%d:up=%lu", w, b, bleRssi(), (unsigned long)(millis()/1000)); bleNotify(m);
     }
   } else { lastW = -1; lastB = -1; }
 }
