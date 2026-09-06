@@ -9,6 +9,7 @@
 #include <NimBLEDevice.h>
 #include <WiFi.h>
 #include <esp_mac.h>
+#include <esp_system.h>
 
 // Your own UUIDs (change the base if you want). RX = phone->board, TX = board->phone.
 #define CTRL_SVC "a0b00000-1234-4b0a-9c5e-000000000000"
@@ -88,7 +89,7 @@ static void handleCmd(const char* cmd) {
   if (!strcmp(cmd, "__VER__")) {
     bleNotify((String("ver:") + APP_VERSION + "|" + APP_BOARD_NAME).c_str());   // ONE notify
   } else if (!strcmp(cmd, "__STATUS__")) {
-    char b[64]; snprintf(b, sizeof(b), "st:ble=1:wifi=%d:batt=%d:rssi=%d:up=%lu", netConfigured()?1:0, batteryPct(), bleRssi(), (unsigned long)(millis()/1000)); bleNotify(b);
+    char b[96]; snprintf(b, sizeof(b), "st:ble=1:wifi=%d:batt=%d:rssi=%d:up=%lu:heap=%lu:rst=%d", netConfigured()?1:0, batteryPct(), bleRssi(), (unsigned long)(millis()/1000), (unsigned long)ESP.getFreeHeap(), (int)esp_reset_reason()); bleNotify(b);
   } else if (!strcmp(cmd, "__WIFIST__")) {
     bleNotify(netStatus().c_str());
   } else if (!strcmp(cmd, "__WIFIGET__")) {                    // WiFi creds for settings export (BLE link is bonded/encrypted)
@@ -137,7 +138,7 @@ void bleTick() {
     int8_t w = netConfigured() ? 1 : 0, b = batteryPct();   // config-only board: green = creds saved
     if (w != lastW || b/5 != lastB/5 || millis() - lastPush > 5000) {   // 5s refresh keeps RSSI live
       lastW = w; lastB = b; lastPush = millis();
-      char m[64]; snprintf(m, sizeof(m), "st:ble=1:wifi=%d:batt=%d:rssi=%d:up=%lu", w, b, bleRssi(), (unsigned long)(millis()/1000)); bleNotify(m);
+      char m[96]; snprintf(m, sizeof(m), "st:ble=1:wifi=%d:batt=%d:rssi=%d:up=%lu:heap=%lu:rst=%d", w, b, bleRssi(), (unsigned long)(millis()/1000), (unsigned long)ESP.getFreeHeap(), (int)esp_reset_reason()); bleNotify(m);
     }
   } else { lastW = -1; lastB = -1; }
 }
