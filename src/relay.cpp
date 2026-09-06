@@ -42,10 +42,10 @@ bool relayChipCanCoexist() {
 static void computeId() {
   String cid = cfgGet("relayid", ""); cid.trim(); cid.replace(" ", ""); cid.replace("/", "");
   if (cid.length()) { s_id = cid; return; }               // custom id from config
-  String m = bleMac() ? String(bleMac()) : String("000000");   // default: bt-<last 6 hex of BLE MAC>
-  m.replace(":", "");
-  if (m.length() > 6) m = m.substring(m.length() - 6);
-  s_id = "bt-" + m;
+  // Default id from the factory eFuse MAC — STABLE across boots (the BLE address can be a rotating
+  // private address, which would change the id every boot and break auto-boot's saved-id match).
+  char b[16]; snprintf(b, sizeof(b), "bt-%06x", (uint32_t)(ESP.getEfuseMac() & 0xFFFFFF));
+  s_id = b;
 }
 const char* relayId() { if (!s_id.length()) computeId(); return s_id.c_str(); }
 void relayRefreshId() { s_id = ""; computeId(); }
