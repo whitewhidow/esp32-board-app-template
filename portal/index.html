@@ -31,6 +31,7 @@
 <body>
 <h1 id="appTitle">🔧 Board App</h1>
 <button id="connect" style="width:100%">Connect</button>
+<div id="connMsg" class="sub" style="margin-top:6px;color:var(--green)"></div>
 
 <div id="relayConnect" style="margin-top:10px">
   <div class="sub">…or drive a board over the internet through your <b>relay</b> (no BLE range needed):</div>
@@ -405,11 +406,22 @@ $('rmGo').onclick = async () => {
   try {
     const r=await req('__RELAY__', 'relay:', 8000);
     if(r.startsWith('relay:up')){ const id=r.slice(9).trim();
-      relay={url,id,tok}; relayPollLoop(); setInterval(()=>{ if(relay) send('__STATUS__'); },10000);
-      $('hConn').textContent='● remote '+id; $('rmMsg').textContent='remote as '+id+' — watch the board: STA turns green when it is actually online'; }
+      try{ localStorage.setItem('relay-last', JSON.stringify({url,id,tok})); }catch(e){}
+      // The board is dropping BLE to free heap for TLS — return to the connect screen with the
+      // relay fields pre-filled, then connect over the relay from there.
+      $('rcUrl').value=url; $('rcId').value=id; $('rcTok').value=tok;
+      showConnectScreen('Board is now remote as '+id+' (BLE off). Connect via the relay below.'); }
     else $('rmMsg').textContent=r; }
   catch(e){ $('rmMsg').textContent='failed: '+e.message; }
 };
+// Return to the connect screen (e.g. after Go remote drops BLE).
+function showConnectScreen(msg){
+  try{ if(rxCh&&rxCh.service&&rxCh.service.device&&rxCh.service.device.gatt.connected) rxCh.service.device.gatt.disconnect(); }catch(e){}
+  rxCh=null; relay=null; _pollOn=false; waiters=[];
+  $('app').hidden=true; $('hdr').hidden=true;
+  $('connect').hidden=false; $('relayConnect').hidden=false;
+  $('connMsg').textContent = msg || '';
+}
 $('rebootBtn').onclick = () => {
   if(!confirm('Reboot the board now?'+(relay?' It will come back with BLE up (unless “Connect relay on boot” is set).':''))) return;
   send('__REBOOT__');
