@@ -12,7 +12,7 @@ const CfgField CFG_FIELDS[] = {
   { "relaytok",   "Relay token",         's' },
   { "relayid",    "Relay id (blank = auto)", 's' },       // mailbox id; blank -> bt-<BLE MAC6>
   { "relayauto",  "Connect relay on boot",   'b' },       // auto-go-remote at startup (needs URL + WiFi)
-  { "relaykeepble","Keep BLE when remote",   'b' },       // default off: drop BLE to free heap for TLS (needed on no-PSRAM boards)
+  { "relaykeepble","Force-keep BLE remote",   'b' },       // auto: kept if PSRAM present, else dropped for TLS heap; tick to force-keep
   // { "beep",    "Beep on event",       'b' },
 };
 const int CFG_FIELD_COUNT = sizeof(CFG_FIELDS) / sizeof(CFG_FIELDS[0]);

@@ -120,9 +120,10 @@ static void handleCmd(const char* cmd) {
     if (!netConfigured())   bleNotify("relay:err set WiFi first");
     else if (!url.length()) bleNotify("relay:err set a Relay URL in Config");
     else { relayConnect(url, tok); bleNotify((String("relay:up ") + relayId()).c_str());
-      // Default: drop BLE so the https/TLS relay connection has heap (no-PSRAM boards can't
-      // do BLE+WiFi+TLS at once). "Keep BLE when remote" opts a roomy board out.
-      if (cfgGet("relaykeepble", "0") != "1") { delay(350); bleStop(); }   // 350ms lets the notify flush first
+      // Keep BLE if the board has PSRAM (room for BLE+WiFi+TLS at once) or the user forces it;
+      // otherwise drop it — the no-PSRAM Waveshare can't fit all three (TLS alloc fails -32512).
+      bool keepBle = (cfgGet("relaykeepble", "0") == "1") || (ESP.getPsramSize() > 0);
+      if (!keepBle) { delay(350); bleStop(); }   // 350ms lets the notify flush first
     }
   } else if (!strcmp(cmd, "__RELAYOFF__")) {
     relayStop(); bleNotify("relay:off");

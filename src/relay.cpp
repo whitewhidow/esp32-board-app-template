@@ -95,7 +95,8 @@ void relayBegin() {
   if (!url.length() || !netConfigured()) { Serial.println("[relay] auto-boot skipped (no URL or WiFi creds)"); return; }
   Serial.println("[relay] auto-connect on boot");
   relayConnect(url, cfgGet("relaytok", ""));
-  if (cfgGet("relaykeepble", "0") != "1") { delay(200); bleStop(); }   // free heap for TLS on small boards
+  bool keepBle = (cfgGet("relaykeepble", "0") == "1") || (ESP.getPsramSize() > 0);
+  if (!keepBle) { delay(200); bleStop(); }   // no PSRAM -> free heap for TLS
 }
 
 bool relayConnect(const String& url, const String& token) {
