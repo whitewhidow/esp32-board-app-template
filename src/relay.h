@@ -13,5 +13,6 @@ bool        relayActive();
 int         relayState();                                  // 0 off · 1 connecting (WiFi down) · 2 online (polling)
 const char* relayId();                                     // this board's mailbox id (config "relayid", else "bt-<mac6>")
 void        relayRefreshId();                              // re-read the id after a config change
+bool        relayChipCanCoexist();                         // BLE+WiFi+TLS at once? (S3 yes; C5 only w/ PSRAM)
 void        relayPostReply(const char* line);              // reply sink while running a relay command
 void        relayTick();                                   // call from loop(): dispatch pulled commands

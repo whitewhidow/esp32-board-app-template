@@ -25,6 +25,15 @@ static void normUrl(String& u) {
   u.trim(); while (u.endsWith("/")) u.remove(u.length() - 1);
   int p = u.indexOf("://"); if (p > 0) { String sc = u.substring(0, p); sc.toLowerCase(); u = sc + u.substring(p); }
 }
+// Keep BLE up alongside WiFi+TLS? The S3 has enough SRAM even without PSRAM; the C5 only
+// fits it with PSRAM (the no-PSRAM Waveshare must drop BLE — SSL alloc -32512).
+bool relayChipCanCoexist() {
+#if defined(CONFIG_IDF_TARGET_ESP32S3)
+  return true;
+#else
+  return ESP.getPsramSize() > 0;
+#endif
+}
 
 static void computeId() {
   String cid = cfgGet("relayid", ""); cid.trim(); cid.replace(" ", ""); cid.replace("/", "");
@@ -116,7 +125,7 @@ void relayBegin() {
   if (!url.length() || !netConfigured()) { Serial.println("[relay] auto-boot skipped (no URL or WiFi creds)"); return; }
   Serial.println("[relay] auto-connect on boot");
   relayConnect(url, cfgGet("relaytok", ""));
-  bool keepBle = (cfgGet("relaykeepble", "0") == "1") || (ESP.getPsramSize() > 0);
+  bool keepBle = (cfgGet("relaykeepble", "0") == "1") || relayChipCanCoexist();
   if (!keepBle) { delay(200); bleStop(); }   // no PSRAM -> free heap for TLS
 }
 

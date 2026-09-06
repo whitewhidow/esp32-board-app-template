@@ -122,7 +122,7 @@ static void handleCmd(const char* cmd) {
     else { relayConnect(url, tok); bleNotify((String("relay:up ") + relayId()).c_str());
       // Keep BLE if the board has PSRAM (room for BLE+WiFi+TLS at once) or the user forces it;
       // otherwise drop it — the no-PSRAM Waveshare can't fit all three (TLS alloc fails -32512).
-      bool keepBle = (cfgGet("relaykeepble", "0") == "1") || (ESP.getPsramSize() > 0);
+      bool keepBle = (cfgGet("relaykeepble", "0") == "1") || relayChipCanCoexist();
       if (!keepBle) { delay(350); bleStop(); }   // 350ms lets the notify flush first
     }
   } else if (!strcmp(cmd, "__RELAYOFF__")) {
