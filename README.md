@@ -22,12 +22,13 @@ them as a worked example.
 - **WiFi OTA** (`netota.cpp`) — reboot-to-fetch self-update into an A/B slot (works even
   on headless / single-button boards).
 - **Config** (`config.cpp`) — NVS settings; declare fields once, the portal auto-renders
-  the form. Includes the **boot-splash on/off** toggle and **Export all / Import** of the
-  whole config (+ WiFi) as a JSON file.
+  the form. Includes the **boot-splash on/off** toggle, **Export all / Import** of the whole
+  config (+ WiFi) as a JSON file, and named **config profiles** saved in the browser.
 - **Portal** (`portal/index.html`) — Web-Bluetooth control page: a status header with a
   version pill (checked against the latest GitHub release) plus live board badges
-  (battery %, BLE RSSI, uptime), and **Editor / Config / WiFi / Update** tabs
-  (opens on Editor).
+  (battery %, BLE RSSI, uptime, free heap, free flash), and **Editor / Config / WiFi / Update**
+  tabs (opens on Editor). A `clock.h` helper takes a phone-set wall clock (`__TIME__`) so apps
+  can real-timestamp their data without a radio.
 - **Web flasher** (`flasher/`) — ESP Web Tools browser USB flash of the **merged** image.
 - **CI** (`.github/workflows/release.yml`) — on a tag, builds every board, publishes
   app-only + merged bins, and auto-updates the flasher.
