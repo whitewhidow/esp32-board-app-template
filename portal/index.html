@@ -168,6 +168,7 @@ async function relayPollLoop(){                  // long-poll the relay for repl
 }
 function startRemote(label){                     // reveal the app driven purely over the relay
   $('connect').hidden=true; const rc=$('relayConnect'); if(rc) rc.hidden=true;
+  if($('connMsg')) $('connMsg').textContent='';
   $('hdr').hidden=false; $('app').hidden=false; $('hConn').textContent='● '+label;
   relayPollLoop(); send('__VER__'); setTimeout(()=>send('__STATUS__'),400); setTimeout(()=>send('__WIFIST__'),600);
   setInterval(()=>{ if(relay) send('__STATUS__'); }, 10000);   // keep badges fresh over the relay
@@ -478,7 +479,7 @@ $('connect').onclick = async () => {
     rxCh = await svc.getCharacteristic(RX);
     const tx = await svc.getCharacteristic(TX);
     await tx.startNotifications(); tx.addEventListener('characteristicvaluechanged', onNotify);
-    $('connect').hidden=true; $('relayConnect').hidden=true; $('hdr').hidden=false; $('app').hidden=false;
+    $('connect').hidden=true; $('relayConnect').hidden=true; if($('connMsg')) $('connMsg').textContent=''; $('hdr').hidden=false; $('app').hidden=false;
     $('hConn').textContent = dev.name || 'connected';
     send('__TIME__:'+Math.floor(Date.now()/1000)); send('__VER__'); setTimeout(()=>send('__STATUS__'), 200); setTimeout(()=>send('__WIFIST__'), 400); setTimeout(loadConfig, 700); checkLatest();
     setTimeout(noteLoad, 600);
