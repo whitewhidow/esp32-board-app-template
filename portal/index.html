@@ -99,7 +99,15 @@ const $=id=>document.getElementById(id);
 let rxCh=null, latestVer=null, curVer='', cfgFields=[], wifiConfigured=null;
 
 function log(m){ const e=$('log'); if(e){ e.textContent+=m+'\n'; e.scrollTop=e.scrollHeight; } }
-function send(s){ return rxCh && rxCh.writeValue(new TextEncoder().encode(s)); }
+// Serialize GATT writes — Web Bluetooth allows only one op at a time, so overlapping
+// sends otherwise reject with "GATT operation already in progress". Chain each behind the last.
+let _tx = Promise.resolve();
+function send(s){
+  if (!rxCh) return Promise.resolve();
+  const data = new TextEncoder().encode(s);
+  _tx = _tx.catch(()=>{}).then(()=> rxCh.writeValue(data));
+  return _tx;
+}
 
 // ---- request/response over BLE: send a command, await the reply that starts with `prefix` ----
 let waiters=[];
