@@ -436,7 +436,7 @@ $('connect').onclick = async () => {
     rxCh = await svc.getCharacteristic(RX);
     const tx = await svc.getCharacteristic(TX);
     await tx.startNotifications(); tx.addEventListener('characteristicvaluechanged', onNotify);
-    $('connect').hidden=true; $('hdr').hidden=false; $('app').hidden=false;
+    $('connect').hidden=true; $('relayConnect').hidden=true; $('hdr').hidden=false; $('app').hidden=false;
     $('hConn').textContent = dev.name || 'connected';
     send('__TIME__:'+Math.floor(Date.now()/1000)); send('__VER__'); setTimeout(()=>send('__STATUS__'), 200); setTimeout(()=>send('__WIFIST__'), 400); checkLatest();
     setTimeout(noteLoad, 600);
