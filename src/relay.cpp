@@ -44,13 +44,18 @@ static String httpPull() {                       // GET /pull — modest timeout
     if (s_tok.length()) http.addHeader("x-relay-token", s_tok); if (http.GET() == 200) out = http.getString(); http.end(); }
   return out;
 }
-static void httpPostReply(const char* line) {    // POST /reply
-  String u = s_url + "/reply/" + s_id;
-  HTTPClient http; http.setTimeout(8000);
-  if (isHttps()) { WiFiClientSecure c; c.setInsecure(); if (!http.begin(c, u)) return;
-    if (s_tok.length()) http.addHeader("x-relay-token", s_tok); http.addHeader("Content-Type", "text/plain"); http.POST((uint8_t*)line, strlen(line)); http.end(); }
-  else { WiFiClient c; if (!http.begin(c, u)) return;
-    if (s_tok.length()) http.addHeader("x-relay-token", s_tok); http.addHeader("Content-Type", "text/plain"); http.POST((uint8_t*)line, strlen(line)); http.end(); }
+static bool httpPostReplyOnce(const String& u, const char* line) {
+  HTTPClient http; http.setTimeout(8000); int code = 0;
+  if (isHttps()) { WiFiClientSecure c; c.setInsecure(); if (!http.begin(c, u)) return false;
+    if (s_tok.length()) http.addHeader("x-relay-token", s_tok); http.addHeader("Content-Type", "text/plain"); code = http.POST((uint8_t*)line, strlen(line)); http.end(); }
+  else { WiFiClient c; if (!http.begin(c, u)) return false;
+    if (s_tok.length()) http.addHeader("x-relay-token", s_tok); http.addHeader("Content-Type", "text/plain"); code = http.POST((uint8_t*)line, strlen(line)); http.end(); }
+  return code == 200;
+}
+static void httpPostReply(const char* line) {    // POST /reply — retry: C5 TLS alloc is marginal and often
+  String u = s_url + "/reply/" + s_id;           // succeeds on the 2nd try once a little heap frees up
+  for (int i = 0; i < 4; i++) { if (httpPostReplyOnce(u, line)) return; vTaskDelay(pdMS_TO_TICKS(150)); }
+  Serial.println("[relay] reply POST failed after retries");
 }
 
 // Reply sink (runs in the main loop while a relay command is handled): just queue it —

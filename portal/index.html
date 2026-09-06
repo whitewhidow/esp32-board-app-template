@@ -168,7 +168,7 @@ async function relayPollLoop(){                  // long-poll the relay for repl
 function startRemote(label){                     // reveal the app driven purely over the relay
   $('connect').hidden=true; const rc=$('relayConnect'); if(rc) rc.hidden=true;
   $('hdr').hidden=false; $('app').hidden=false; $('hConn').textContent='● '+label;
-  relayPollLoop(); send('__VER__'); setTimeout(()=>send('__STATUS__'),400);
+  relayPollLoop(); send('__VER__'); setTimeout(()=>send('__STATUS__'),400); setTimeout(()=>send('__WIFIST__'),600);
   setInterval(()=>{ if(relay) send('__STATUS__'); }, 10000);   // keep badges fresh over the relay
 }
 
@@ -192,6 +192,7 @@ for (const t of document.querySelectorAll('.tab')) t.onclick=()=>{
   for (const x of document.querySelectorAll('.tab')) x.classList.toggle('active', x===t);
   for (const id of ['editor','config','wifi','update']) $('t-'+id).hidden = (id!==t.dataset.tab);
   if (t.dataset.tab==='update') { checkLatest(); send('__WIFIST__'); }
+  if (t.dataset.tab==='wifi') send('__WIFIST__');
   if (t.dataset.tab==='config') loadConfig();
 };
 
