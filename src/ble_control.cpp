@@ -91,6 +91,8 @@ static void handleCmd(const char* cmd) {
     char b[64]; snprintf(b, sizeof(b), "st:ble=1:wifi=%d:batt=%d:rssi=%d:up=%lu", netConfigured()?1:0, batteryPct(), bleRssi(), (unsigned long)(millis()/1000)); bleNotify(b);
   } else if (!strcmp(cmd, "__WIFIST__")) {
     bleNotify(netStatus().c_str());
+  } else if (!strcmp(cmd, "__WIFIGET__")) {                    // WiFi creds for settings export (BLE link is bonded/encrypted)
+    bleNotify((String("wifiget:") + netCreds()).c_str());
   } else if (!strncmp(cmd, "__WIFI__:", 9)) {                 // "__WIFI__:ssid|pass"
     const char* a = cmd + 9; const char* bar = strchr(a, '|');
     if (bar) { netSetCreds(String(a).substring(0, bar - a), bar + 1); bleNotify("wifi:saved"); }

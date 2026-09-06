@@ -43,6 +43,7 @@ void netClearCreds() {
 }
 bool netConnected() { return WiFi.status() == WL_CONNECTED; }
 bool netConfigured() { return s_ssid.length() > 0; }
+String netCreds() { return s_ssid + "|" + s_pass; }   // "<ssid>|<pass>" for settings backup/export
 
 String netStatus() {
   wl_status_t w = WiFi.status();
