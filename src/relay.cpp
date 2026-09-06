@@ -19,6 +19,12 @@ static QueueHandle_t s_replyQ = nullptr;       // main loop -> task  (replies to
 struct RelayMsg { char s[320]; };
 
 static bool isHttps() { return s_url.startsWith("https"); }
+// Normalise: strip trailing '/', lowercase the scheme (mobile keyboards auto-capitalise the
+// first letter -> "Https://", which would otherwise be treated as plain http).
+static void normUrl(String& u) {
+  u.trim(); while (u.endsWith("/")) u.remove(u.length() - 1);
+  int p = u.indexOf("://"); if (p > 0) { String sc = u.substring(0, p); sc.toLowerCase(); u = sc + u.substring(p); }
+}
 
 static void computeId() {
   String cid = cfgGet("relayid", ""); cid.trim(); cid.replace(" ", ""); cid.replace("/", "");
@@ -62,7 +68,8 @@ static void httpPostReply(const char* line) {    // POST /reply — retry: C5 TL
 // the task does the actual POST, so HTTP never overlaps the pull.
 void relayPostReply(const char* line) {
   if (!s_active || !s_replyQ) return;
-  RelayMsg m; strlcpy(m.s, line, sizeof(m.s)); xQueueSend(s_replyQ, &m, 0);
+  RelayMsg m; strlcpy(m.s, line, sizeof(m.s));
+  xQueueSend(s_replyQ, &m, pdMS_TO_TICKS(4000));   // block if full — don't drop burst chunks
 }
 
 // One task owns ALL HTTP: drain outgoing replies, then pull one command. Because a command
@@ -81,7 +88,7 @@ static void relayTask(void*) {
     RelayMsg m;
     while (xQueueReceive(s_replyQ, &m, 0)) httpPostReply(m.s);     // send pending replies first (single TLS)
     String cmd = httpPull();
-    if (cmd.length()) { Serial.printf("[relay] cmd: %s\n", cmd.c_str()); RelayMsg c; strlcpy(c.s, cmd.c_str(), sizeof(c.s)); xQueueSend(s_cmdQ, &c, 0);
+    if (cmd.length()) { Serial.printf("[relay] cmd: %s\n", cmd.c_str()); RelayMsg c; strlcpy(c.s, cmd.c_str(), sizeof(c.s)); xQueueSend(s_cmdQ, &c, pdMS_TO_TICKS(4000));   // block if main loop behind — don't drop commands
       vTaskDelay(pdMS_TO_TICKS(40)); }                            // let the main loop produce the reply before the next pull
     else vTaskDelay(pdMS_TO_TICKS(30));
   }
@@ -100,15 +107,15 @@ void relayBegin() {
 }
 
 bool relayConnect(const String& url, const String& token) {
-  s_url = url; s_url.trim(); while (s_url.endsWith("/")) s_url.remove(s_url.length() - 1);
+  s_url = url; normUrl(s_url);
   s_tok = token;
   computeId();
   s_state = 1;
   Serial.printf("[relay] go remote: %s as %s — bringing up WiFi STA\n", s_url.c_str(), s_id.c_str());
   netConnect();                                  // STA up with the saved WiFi creds
   s_active = true;
-  if (!s_cmdQ)   s_cmdQ   = xQueueCreate(8, sizeof(RelayMsg));
-  if (!s_replyQ) s_replyQ = xQueueCreate(8, sizeof(RelayMsg));
+  if (!s_cmdQ)   s_cmdQ   = xQueueCreate(16, sizeof(RelayMsg));
+  if (!s_replyQ) s_replyQ = xQueueCreate(16, sizeof(RelayMsg));
   if (!s_task)   xTaskCreatePinnedToCore(relayTask, "relay", 8192, nullptr, 1, &s_task, 0);
   return true;
 }
