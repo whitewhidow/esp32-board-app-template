@@ -167,7 +167,7 @@ static void handleCmd(const char* cmd) {
     const char* a = cmd + 11; const char* eq = strchr(a, '=');
     if (eq) { String key = String(a).substring(0, eq - a); cfgSet(key.c_str(), eq + 1);
       if (key == "relayid") relayRefreshId();                 // custom mailbox id takes effect immediately
-      bleNotify("cfg:ok"); }
+      bleNotify((String("set:") + key + "=" + (eq + 1)).c_str()); }   // informative ack -> Board feedback log
   } else {
     if (!appHandleCommand(cmd)) bleNotify((String("err:unknown ") + cmd).c_str());
   }
