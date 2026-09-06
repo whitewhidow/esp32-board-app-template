@@ -131,7 +131,15 @@ static void relayTask(void*) {
       wasUp = false;
       if (s_openAp) {
         s_state = 3;                                    // scanning/attempting -> STA shows BLUE
-        if (!relayTryOpenAps()) vTaskDelay(pdMS_TO_TICKS(8000));   // none reachable — rescan later
+        if (!relayTryOpenAps()) {
+          if (netConfigured()) {                        // no open AP reached the relay -> fall back to saved creds
+            Serial.println("[relay] no open AP reachable — falling back to saved WiFi creds");
+            netConnect();
+            uint32_t t0 = millis();
+            while (WiFi.status() != WL_CONNECTED && millis() - t0 < 10000) vTaskDelay(pdMS_TO_TICKS(200));
+          }
+          if (WiFi.status() != WL_CONNECTED) vTaskDelay(pdMS_TO_TICKS(8000));   // still nothing — rescan
+        }
       } else {
         s_state = 1;
         if (millis() - lastLog > 3000) { lastLog = millis(); Serial.printf("[relay] waiting for WiFi (status=%d)\n", WiFi.status()); }

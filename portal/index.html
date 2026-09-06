@@ -106,7 +106,7 @@
       <div class="sub" style="margin-top:12px"><b>Go remote</b> — connect this board to the relay set in <b>Config</b> so you can control it over the internet (keeps BLE too). Needs the WiFi creds above saved. Note the board id it reports, so you can reconnect from anywhere.</div>
       <button id="rmGo" style="width:100%;margin-top:4px">Go remote (relay)</button>
       <button id="rmScan" class="sec" style="width:100%;margin-top:4px">Find open AP + go remote</button>
-      <div class="sub" style="margin-top:2px">Scans for an open Wi-Fi that can reach the relay (skips captive-portal ones) instead of using the saved creds. Enable <b>Find open AP for relay</b> in Config to do this on boot.</div>
+      <div class="sub" style="margin-top:2px">Scans for an open Wi-Fi that can reach the relay (skips captive-portal ones), and <b>falls back to your saved creds</b> if none work. Enable <b>Find open AP for relay</b> in Config to do this on boot.</div>
       <div id="rmMsg" class="sub" style="margin-top:4px"></div>
     </div>
     <div id="goRemoteHint" class="sub" style="margin-top:12px">Set a <b>Relay URL</b> in Config to enable remote control over the internet.</div>
