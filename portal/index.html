@@ -153,7 +153,7 @@ let _tx = Promise.resolve();
 const QUIET_TX = ['__STATUS__','__WIFIST__','__VER__','__TIME__','__CFGGET__','__CFGSET__','__W__:','__NOTEADD__','__NOTEGET__','__NOTEEND__','__SWITCHLIST__','__PLLIST__','__PLSLOTS__','__PLGET__','__AUTOGET__','__ABGET__','__OSGET__','__FDGET__','__TDGET__','__SPGET__'];
 const QUIET_RX = ['st:','ver:','wifi:','ota:','cfg:','pll','pslots','sw:','wok','wifiget:','note:ready','note:ack'];
 function feedTx(s){ if(s && !QUIET_TX.some(q=>s.startsWith(q))) log('→ '+s); }
-function feedRx(v){ if(v && !QUIET_RX.some(q=>v.startsWith(q))) log('← '+v); }
+function feedRx(v){ if(v && !QUIET_RX.some(q=>v.startsWith(q)) && !/^note:\d/.test(v)) log('← '+v); }   // /^note:\d/ = a load data chunk
 // Log a status transition ONCE (deduped) — periodic polls repeat the same value; we only want the
 // moment it CHANGES (wifi connects/drops, relay goes online).
 const _lastState = {};
@@ -261,10 +261,11 @@ function handleLine(v){
 // ================= LittleFS note editor (chunked file transfer over BLE) =================
 async function noteLoad(){
   $('noteMsg').textContent='loading…'; $('noteTxt').value='';
+  const ms = relay ? 12000 : 6000;                // relay round-trips are slower than BLE
   try {
     let off=0,total=1,buf=[];
     while (off<total){
-      const line=await req('__NOTEGET__:'+off,'note:');
+      const line=await req('__NOTEGET__:'+off,'note:', ms);
       const m=line.match(/^note:(\d+):(\d+):(.*)$/); if(!m) break;
       const nextoff=+m[1]; total=+m[2]; const b64=m[3];
       if (b64){ const bin=atob(b64); for(let i=0;i<bin.length;i++) buf.push(bin.charCodeAt(i)); }
@@ -272,6 +273,7 @@ async function noteLoad(){
     }
     $('noteTxt').value=new TextDecoder('utf-8').decode(new Uint8Array(buf));
     $('noteMsg').textContent=buf.length?('loaded '+buf.length+' B'):'empty';
+    log('· loaded note ('+buf.length+' B)');
   } catch(e){ $('noteMsg').textContent='load failed: '+e.message; }
 }
 // One full save attempt. __NOTEPUT__ truncates a TEMP file (committed to live only on __NOTEEND__),
@@ -339,7 +341,8 @@ async function loadConfig(){   // chunked fetch (cfgJson can exceed the C5's BLE
       const next=+m[1]; total=+m[2]; buf+=m[3]; if(next<=off) break; off=next;
     }
     renderCfg(buf);
-  } catch(e){ const el=$('cfgMsg'); if(el) el.textContent='config load failed: '+e.message; }
+    log('· config loaded ('+cfgFields.length+' settings)');
+  } catch(e){ const el=$('cfgMsg'); if(el) el.textContent='config load failed: '+e.message; log('✖ config load failed: '+e.message); }
 }
 function renderCfg(json){
   try { cfgFields = JSON.parse(json); } catch(e){ return; }
