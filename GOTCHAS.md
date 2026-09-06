@@ -16,6 +16,12 @@ Hard-won lessons baked into this template. Read before you fight them again.
   if bonding is stale. The portal auto-reloads after an OTA so it reconnects on fresh GATT.
 - WiFi is **configure-only** in the portal — bringing WiFi up while BLE runs churns the
   radio on no-PSRAM boards. The reboot-to-fetch OTA connects WiFi itself, alone, at boot.
+- **A notify bigger than the negotiated MTU silently fails on the C5.** The config JSON can
+  exceed it, so it's served in small **chunks** (`__CFGGET__:<off>` → `cfg:<end>:<total>:<part>`),
+  reassembled by the portal. A single oversized notify just vanishes with no error.
+- **Web Bluetooth runs one GATT op at a time.** Overlapping `writeValue()` calls reject
+  instantly with *"GATT operation already in progress"*, so the portal funnels every write
+  through a **send-queue**.
 
 ## Boards / build
 
@@ -29,7 +35,9 @@ Hard-won lessons baked into this template. Read before you fight them again.
 - **ESP32-C5** flashes with the bootloader at `0x2000` (not `0x0`), needs esptool ≥ 5, and
   its ROM often rejects the stub loader → `upload_flags = --no-stub`. The pioarduino C5
   build also hits a cold-cache `FRAMEWORK_DIR=None` transient — the CI retries 3×.
-- **4 MB can't fit two 3 MB OTA slots.** The C5 4 MB partition uses 1.75 MB slots.
+- **4 MB can't fit two OTA slots.** A 4 MB board (e.g. the Waveshare C5) ships a **single app
+  slot — no A/B OTA**, so it can't self-update or firmware-switch; reflash it over USB/web-flasher.
+  (This matches the switcher note below.) The 16 MB boards get real A/B slots.
 
 ## OTA / bins
 
