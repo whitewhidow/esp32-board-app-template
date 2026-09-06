@@ -2,6 +2,8 @@
 #include "display.h"
 #include "board.h"
 #include "version.h"
+#include "relay.h"
+#include "config.h"
 
 #if !APP_HAS_DISPLAY
 // ---- Headless: the BLE portal is the UI. Every draw is a no-op. -------------------
@@ -144,6 +146,12 @@ void dispStatus(bool ble, bool wifi, int batt) {
   lcd.setTextSize(1); lcd.setCursor(2, STAT_Y);
   lcd.setTextColor(ble  ? lcd.color888(0x3F,0xB9,0x50) : lcd.color888(0x5A,0x63,0x6B), 0); lcd.print("BLE ");
   lcd.setTextColor(wifi ? lcd.color888(0x3F,0xB9,0x50) : lcd.color888(0x5A,0x63,0x6B), 0); lcd.print("WIFI ");
+  // STA = remote relay link: red if no relay URL set, orange if set but not online, green when polling.
+  int rs = relayState(); bool relayCfgd = cfgGet("relayurl", "").length() > 0;
+  uint32_t sc = !relayCfgd ? lcd.color888(0xE5,0x48,0x4D)         // red: not configured
+              : rs == 2   ? lcd.color888(0x3F,0xB9,0x50)         // green: online
+              :             lcd.color888(0xE5,0xA9,0x4D);        // orange: configured but off / connecting
+  lcd.setTextColor(sc, 0); lcd.print("STA ");
   if (batt >= 0) { lcd.setTextColor(lcd.color888(0xC8,0xD2,0xDA), 0); lcd.printf("%d%%", batt); }
 }
 

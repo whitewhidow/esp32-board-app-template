@@ -53,6 +53,7 @@
   <span id="hUp" class="chip" hidden></span>
   <span id="hHeap" class="chip" hidden></span>
   <span id="hFs" class="chip" hidden></span>
+  <span id="hRly" class="chip" hidden></span>
 </div>
 
 <div id="app" hidden>
@@ -100,9 +101,11 @@
     <input id="ssid" placeholder="WiFi SSID" style="margin-bottom:8px">
     <input id="wpass" type="password" placeholder="WiFi password" style="margin-bottom:8px">
     <div class="row"><button id="wifiSave" style="flex:1">Save</button><button id="wifiClear" class="warn">Forget</button></div>
-    <div class="sub" style="margin-top:12px"><b>Go remote</b> — connect this board to your relay so you can control it over the internet (keeps BLE too). Needs the WiFi creds above saved. Note the board id it reports, so you can reconnect from anywhere.</div>
-    <div class="row" style="margin-top:4px"><input id="rmUrl" placeholder="relay URL — https://…" style="flex:2"><input id="rmTok" placeholder="token" style="flex:1"></div>
-    <div class="row" style="margin-top:4px"><button id="rmGo" style="flex:1">Go remote (relay)</button><span id="rmMsg" class="sub" style="margin:0;flex:2;align-self:center"></span></div>
+    <div id="goRemoteBlock" hidden>
+      <div class="sub" style="margin-top:12px"><b>Go remote</b> — connect this board to the relay set in <b>Config</b> so you can control it over the internet (keeps BLE too). Needs the WiFi creds above saved. Note the board id it reports, so you can reconnect from anywhere.</div>
+      <div class="row" style="margin-top:4px"><button id="rmGo" style="flex:1">Go remote (relay)</button><span id="rmMsg" class="sub" style="margin:0;flex:2;align-self:center"></span></div>
+    </div>
+    <div id="goRemoteHint" class="sub" style="margin-top:12px">Set a <b>Relay URL</b> in Config to enable remote control over the internet.</div>
   </section>
 
   <section id="t-update" hidden>
@@ -216,6 +219,8 @@ function handleLine(v){
         $('hFs').title='flash: '+fmtBytes(free)+' free of '+fmtBytes(tot);
         $('hFs').style.color=(free<tot*0.1)?'#e5a94d':''; $('hFs').hidden=false; }
       else $('hFs').hidden=true; }
+    const rl=v.match(/rly=(\d+)/); if(rl){ const n=+rl[1];
+      $('hRly').textContent='📡 '+(n===2?'remote':'connecting'); $('hRly').style.color=(n===2?'var(--green)':'#e5a94d'); $('hRly').hidden=(n===0); }
     return; }
   if (v.startsWith('wifi:')) { const p=v.slice(5).split('|'); wifiConfigured=(p[0]&&p[0]!=='-'); $('wifiStat').textContent = 'wifi: ' + p.slice(0,2).join(' — '); return; }
   if (v.startsWith('ota:'))  { $('otaStat').textContent = v.slice(4); return; }
@@ -305,6 +310,7 @@ function renderCfg(json){
     else h += `<label class="field">${f.l}</label><input id="c_${f.k}" type="${f.t==='n'?'number':'text'}" value="${(f.v||'').replace(/"/g,'&quot;')}">`;
   }
   $('cfgForm').innerHTML = h;
+  updateRelayUI();
 }
 $('cfgSave').onclick = async () => {
   $('cfgMsg').textContent='saving…';
@@ -376,16 +382,21 @@ profRefresh();
 $('hVer').onclick = () => { if (otaState()==='update') document.querySelector('.tab[data-tab="update"]').click(); };
 $('wifiSave').onclick = () => { const s=$('ssid').value.trim(); if(s){ send('__WIFI__:'+s+'|'+$('wpass').value); wifiConfigured=true; } $('wifiStat').textContent='wifi: saved'; };
 $('wifiClear').onclick = () => { send('__WIFICLR__'); wifiConfigured=false; };
-// Go remote: tell the board (over BLE) to join WiFi + the relay, then switch this page to the relay transport.
+const cfgVal = k => cfgFields.find(f=>f.k===k)?.v || '';
+// Show "Go remote" only once a Relay URL is configured (in Config).
+function updateRelayUI(){ const has = cfgVal('relayurl').length>0;
+  if($('goRemoteBlock')) $('goRemoteBlock').hidden = !has;
+  if($('goRemoteHint'))  $('goRemoteHint').hidden  = has; }
+// Go remote: board uses its saved relay config; then this page switches to the relay transport.
 $('rmGo').onclick = async () => {
-  const url=$('rmUrl').value.trim().replace(/\/+$/,''), tok=$('rmTok').value.trim();
-  if(!url){ $('rmMsg').textContent='enter a relay URL'; return; }
+  const url=cfgVal('relayurl').replace(/\/+$/,''), tok=cfgVal('relaytok');
+  if(!url){ $('rmMsg').textContent='set a Relay URL in Config first'; return; }
   $('rmMsg').textContent='switching to relay…';
   try {
-    const r=await req('__RELAY__:'+url+'|'+tok, 'relay:', 8000);
+    const r=await req('__RELAY__', 'relay:', 8000);
     if(r.startsWith('relay:up')){ const id=r.slice(9).trim();
       relay={url,id,tok}; relayPollLoop(); setInterval(()=>{ if(relay) send('__STATUS__'); },10000);
-      $('hConn').textContent='● remote '+id; $('rmMsg').textContent='remote as '+id+' — you can leave BLE range now'; }
+      $('hConn').textContent='● remote '+id; $('rmMsg').textContent='remote as '+id+' — watch the board: STA turns green when it is actually online'; }
     else $('rmMsg').textContent=r; }
   catch(e){ $('rmMsg').textContent='failed: '+e.message; }
 };
@@ -438,7 +449,7 @@ $('connect').onclick = async () => {
     await tx.startNotifications(); tx.addEventListener('characteristicvaluechanged', onNotify);
     $('connect').hidden=true; $('relayConnect').hidden=true; $('hdr').hidden=false; $('app').hidden=false;
     $('hConn').textContent = dev.name || 'connected';
-    send('__TIME__:'+Math.floor(Date.now()/1000)); send('__VER__'); setTimeout(()=>send('__STATUS__'), 200); setTimeout(()=>send('__WIFIST__'), 400); checkLatest();
+    send('__TIME__:'+Math.floor(Date.now()/1000)); send('__VER__'); setTimeout(()=>send('__STATUS__'), 200); setTimeout(()=>send('__WIFIST__'), 400); setTimeout(loadConfig, 700); checkLatest();
     setTimeout(noteLoad, 600);
   } catch(e){ alert('Connect failed: ' + e.message); }
 };

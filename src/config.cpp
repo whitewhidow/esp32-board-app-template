@@ -8,6 +8,8 @@ const CfgField CFG_FIELDS[] = {
   { "name",       "Device name",         's' },
   { "brightness", "Brightness (0-255)",  'n' },
   { "splash",     "Boot splash",         'b' },   // default on (unset -> on; see main.cpp)
+  { "relayurl",   "Relay URL (remote control)", 's' },   // set this to enable "Go remote" — see relay/
+  { "relaytok",   "Relay token",         's' },
   // { "beep",    "Beep on event",       'b' },
 };
 const int CFG_FIELD_COUNT = sizeof(CFG_FIELDS) / sizeof(CFG_FIELDS[0]);

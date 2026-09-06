@@ -98,16 +98,18 @@ static void handleCmd(const char* cmd) {
   if (!strcmp(cmd, "__VER__")) {
     bleNotify((String("ver:") + APP_VERSION + "|" + APP_BOARD_NAME).c_str());   // ONE notify
   } else if (!strcmp(cmd, "__STATUS__")) {
-    char b[128]; snprintf(b, sizeof(b), "st:ble=1:wifi=%d:batt=%d:rssi=%d:up=%lu:heap=%lu:rst=%d:fs=%lu/%lu", netConfigured()?1:0, batteryPct(), bleRssi(), (unsigned long)(millis()/1000), (unsigned long)ESP.getFreeHeap(), (int)esp_reset_reason(), (unsigned long)(LittleFS.totalBytes()-LittleFS.usedBytes()), (unsigned long)LittleFS.totalBytes()); bleNotify(b);
+    char b[160]; snprintf(b, sizeof(b), "st:ble=1:wifi=%d:batt=%d:rssi=%d:up=%lu:heap=%lu:rst=%d:fs=%lu/%lu:rly=%d", netConfigured()?1:0, batteryPct(), bleRssi(), (unsigned long)(millis()/1000), (unsigned long)ESP.getFreeHeap(), (int)esp_reset_reason(), (unsigned long)(LittleFS.totalBytes()-LittleFS.usedBytes()), (unsigned long)LittleFS.totalBytes(), relayState()); bleNotify(b);
   } else if (!strcmp(cmd, "__WIFIST__")) {
     bleNotify(netStatus().c_str());
   } else if (!strncmp(cmd, "__TIME__:", 9)) {                 // phone-provided wall clock (epoch secs)
     clockSet(strtoul(cmd + 9, nullptr, 10)); bleNotify("time:ok");
-  } else if (!strncmp(cmd, "__RELAY__:", 10)) {               // "url|token" -> also go remote over WiFi
-    const char* a = cmd + 10; const char* bar = strchr(a, '|');
-    String url = bar ? String(a).substring(0, bar - a) : String(a);
-    String tok = bar ? String(bar + 1) : String();
-    if (!netConfigured()) bleNotify("relay:err set WiFi first");
+  } else if (!strncmp(cmd, "__RELAY__", 9) && (cmd[9] == 0 || cmd[9] == ':')) {   // go remote over WiFi
+    String url, tok;
+    if (cmd[9] == ':') { const char* a = cmd + 10; const char* bar = strchr(a, '|');   // explicit "url|token"
+      url = bar ? String(a).substring(0, bar - a) : String(a); tok = bar ? String(bar + 1) : String(); }
+    else { url = cfgGet("relayurl", ""); tok = cfgGet("relaytok", ""); }               // else use saved config
+    if (!netConfigured())   bleNotify("relay:err set WiFi first");
+    else if (!url.length()) bleNotify("relay:err set a Relay URL in Config");
     else { relayConnect(url, tok); bleNotify((String("relay:up ") + relayId()).c_str()); }
   } else if (!strcmp(cmd, "__RELAYOFF__")) {
     relayStop(); bleNotify("relay:off");
@@ -157,7 +159,7 @@ void bleTick() {
     int8_t w = netConfigured() ? 1 : 0, b = batteryPct();   // config-only board: green = creds saved
     if (w != lastW || b/5 != lastB/5 || millis() - lastPush > 5000) {   // 5s refresh keeps RSSI live
       lastW = w; lastB = b; lastPush = millis();
-      char m[128]; snprintf(m, sizeof(m), "st:ble=1:wifi=%d:batt=%d:rssi=%d:up=%lu:heap=%lu:rst=%d:fs=%lu/%lu", w, b, bleRssi(), (unsigned long)(millis()/1000), (unsigned long)ESP.getFreeHeap(), (int)esp_reset_reason(), (unsigned long)(LittleFS.totalBytes()-LittleFS.usedBytes()), (unsigned long)LittleFS.totalBytes()); bleNotify(m);
+      char m[160]; snprintf(m, sizeof(m), "st:ble=1:wifi=%d:batt=%d:rssi=%d:up=%lu:heap=%lu:rst=%d:fs=%lu/%lu:rly=%d", w, b, bleRssi(), (unsigned long)(millis()/1000), (unsigned long)ESP.getFreeHeap(), (int)esp_reset_reason(), (unsigned long)(LittleFS.totalBytes()-LittleFS.usedBytes()), (unsigned long)LittleFS.totalBytes(), relayState()); bleNotify(m);
     }
   } else { lastW = -1; lastB = -1; }
 }

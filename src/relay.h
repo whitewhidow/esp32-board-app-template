@@ -10,6 +10,7 @@ void        relayBegin();                                  // load saved url/tok
 bool        relayConnect(const String& url, const String& token);  // save + STA up + start polling
 void        relayStop();                                   // stop polling (leaves WiFi as-is)
 bool        relayActive();
+int         relayState();                                  // 0 off · 1 connecting (WiFi down) · 2 online (polling)
 const char* relayId();                                     // this board's mailbox id ("bt-<mac6>")
 void        relayPostReply(const char* line);              // reply sink while running a relay command
 void        relayTick();                                   // call from loop(): dispatch pulled commands
