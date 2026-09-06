@@ -411,8 +411,12 @@ $('rmGo').onclick = async () => {
 $('rcGo').onclick = () => {
   const url=$('rcUrl').value.trim().replace(/\/+$/,''), id=$('rcId').value.trim(), tok=$('rcTok').value.trim();
   if(!url||!id){ alert('Need the relay URL and the board id.'); return; }
+  try{ localStorage.setItem('relay-last', JSON.stringify({url,id,tok})); }catch(e){}
   relay={url,id,tok}; startRemote('relay '+id);
 };
+// Restore the last-used relay URL / id / token on the connect screen.
+try{ const l=JSON.parse(localStorage.getItem('relay-last')||'{}');
+  if(l.url) $('rcUrl').value=l.url; if(l.id) $('rcId').value=l.id; if(l.tok) $('rcTok').value=l.tok; }catch(e){}
 $('otaRun').onclick = async () => {
   if (otaState()!=='update') { alert('Already up to date — no newer release to install.'); return; }
   if (wifiConfigured===false) { alert('Set WiFi first (WiFi tab) — the board needs it to download the update.'); return; }
