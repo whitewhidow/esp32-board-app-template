@@ -6,6 +6,7 @@
 #include "config.h"
 #include "battery.h"
 #include "clock.h"
+#include <LittleFS.h>
 #include "switch_targets.h"
 #include <NimBLEDevice.h>
 #include <WiFi.h>
@@ -90,7 +91,7 @@ static void handleCmd(const char* cmd) {
   if (!strcmp(cmd, "__VER__")) {
     bleNotify((String("ver:") + APP_VERSION + "|" + APP_BOARD_NAME).c_str());   // ONE notify
   } else if (!strcmp(cmd, "__STATUS__")) {
-    char b[96]; snprintf(b, sizeof(b), "st:ble=1:wifi=%d:batt=%d:rssi=%d:up=%lu:heap=%lu:rst=%d", netConfigured()?1:0, batteryPct(), bleRssi(), (unsigned long)(millis()/1000), (unsigned long)ESP.getFreeHeap(), (int)esp_reset_reason()); bleNotify(b);
+    char b[128]; snprintf(b, sizeof(b), "st:ble=1:wifi=%d:batt=%d:rssi=%d:up=%lu:heap=%lu:rst=%d:fs=%lu/%lu", netConfigured()?1:0, batteryPct(), bleRssi(), (unsigned long)(millis()/1000), (unsigned long)ESP.getFreeHeap(), (int)esp_reset_reason(), (unsigned long)(LittleFS.totalBytes()-LittleFS.usedBytes()), (unsigned long)LittleFS.totalBytes()); bleNotify(b);
   } else if (!strcmp(cmd, "__WIFIST__")) {
     bleNotify(netStatus().c_str());
   } else if (!strncmp(cmd, "__TIME__:", 9)) {                 // phone-provided wall clock (epoch secs)
@@ -141,7 +142,7 @@ void bleTick() {
     int8_t w = netConfigured() ? 1 : 0, b = batteryPct();   // config-only board: green = creds saved
     if (w != lastW || b/5 != lastB/5 || millis() - lastPush > 5000) {   // 5s refresh keeps RSSI live
       lastW = w; lastB = b; lastPush = millis();
-      char m[96]; snprintf(m, sizeof(m), "st:ble=1:wifi=%d:batt=%d:rssi=%d:up=%lu:heap=%lu:rst=%d", w, b, bleRssi(), (unsigned long)(millis()/1000), (unsigned long)ESP.getFreeHeap(), (int)esp_reset_reason()); bleNotify(m);
+      char m[128]; snprintf(m, sizeof(m), "st:ble=1:wifi=%d:batt=%d:rssi=%d:up=%lu:heap=%lu:rst=%d:fs=%lu/%lu", w, b, bleRssi(), (unsigned long)(millis()/1000), (unsigned long)ESP.getFreeHeap(), (int)esp_reset_reason(), (unsigned long)(LittleFS.totalBytes()-LittleFS.usedBytes()), (unsigned long)LittleFS.totalBytes()); bleNotify(m);
     }
   } else { lastW = -1; lastB = -1; }
 }
