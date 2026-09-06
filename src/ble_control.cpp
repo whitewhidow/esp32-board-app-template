@@ -96,7 +96,7 @@ void bleBegin(const char* advName) {
 // Built-in commands, then the app's. Returns after handling.
 static void handleCmd(const char* cmd) {
   if (!strcmp(cmd, "__VER__")) {
-    bleNotify((String("ver:") + APP_VERSION + "|" + APP_BOARD_NAME).c_str());   // ONE notify
+    bleNotify((String("ver:") + APP_VERSION + "|" + APP_BOARD_NAME + "|" + relayId()).c_str());   // ver|board|relayId
   } else if (!strcmp(cmd, "__STATUS__")) {
     char b[160]; snprintf(b, sizeof(b), "st:ble=1:wifi=%d:batt=%d:rssi=%d:up=%lu:heap=%lu:rst=%d:fs=%lu/%lu:rly=%d", netConfigured()?1:0, batteryPct(), bleRssi(), (unsigned long)(millis()/1000), (unsigned long)ESP.getFreeHeap(), (int)esp_reset_reason(), (unsigned long)(LittleFS.totalBytes()-LittleFS.usedBytes()), (unsigned long)LittleFS.totalBytes(), relayState()); bleNotify(b);
   } else if (!strcmp(cmd, "__WIFIST__")) {

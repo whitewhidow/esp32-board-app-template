@@ -106,6 +106,7 @@
       <div class="row" style="margin-top:4px"><button id="rmGo" style="flex:1">Go remote (relay)</button><span id="rmMsg" class="sub" style="margin:0;flex:2;align-self:center"></span></div>
     </div>
     <div id="goRemoteHint" class="sub" style="margin-top:12px">Set a <b>Relay URL</b> in Config to enable remote control over the internet.</div>
+    <div id="rmId" class="sub" style="margin-top:8px"></div>
   </section>
 
   <section id="t-update" hidden>
@@ -134,7 +135,7 @@ const SVC='a0b00000-1234-4b0a-9c5e-000000000000';
 const RX ='a0b00001-1234-4b0a-9c5e-000000000000';
 const TX ='a0b00002-1234-4b0a-9c5e-000000000000';
 const $=id=>document.getElementById(id);
-let rxCh=null, latestVer=null, curVer='', cfgFields=[], wifiConfigured=null, relay=null;
+let rxCh=null, latestVer=null, curVer='', cfgFields=[], wifiConfigured=null, relay=null, boardId='';
 
 function log(m){ const e=$('log'); if(e){ e.textContent+=m+'\n'; e.scrollTop=e.scrollHeight; } }
 // Serialize GATT writes — Web Bluetooth allows only one op at a time, so overlapping
@@ -201,7 +202,8 @@ function onNotify(e){ handleLine(new TextDecoder().decode(e.target.value)); }
 // Dispatch one line from EITHER transport (BLE notify or a relay reply).
 function handleLine(v){
   for (const w of waiters.slice()) if (v.startsWith(w.prefix)) { clearTimeout(w.timer); waiters=waiters.filter(x=>x!==w); w.resolve(v); return; }
-  if (v.startsWith('ver:'))  { const [ver,board] = v.slice(4).split('|'); curVer=ver; $('hVer').textContent='v'+ver; $('fwver').textContent='v'+ver; if(board) $('hBoard').textContent=board; refreshOta(); return; }
+  if (v.startsWith('ver:'))  { const [ver,board,rid] = v.slice(4).split('|'); curVer=ver; $('hVer').textContent='v'+ver; $('fwver').textContent='v'+ver; if(board) $('hBoard').textContent=board;
+    if(rid){ boardId=rid; const e=$('rmId'); if(e) e.textContent='This board’s relay id: '+rid+'  (use it to reconnect remotely)'; } refreshOta(); return; }
   if (v.startsWith('st:'))   {
     const m=v.match(/batt=(\d+)/); if(m){ $('hBatt').textContent='🔋 '+m[1]+'%'; $('hBatt').hidden=false; }
     const r=v.match(/rssi=(-?\d+)/); if(r){ const d=+r[1];
