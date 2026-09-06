@@ -317,13 +317,15 @@ function renderCfg(json){
 }
 $('cfgSave').onclick = async () => {
   $('cfgMsg').textContent='saving…';
-  for (const f of cfgFields){ const el=$('c_'+f.k); if(!el) continue;
-    const val = f.t==='b' ? (el.checked?'1':'0') : el.value;
-    await send('__CFGSET__:'+f.k+'='+val); await new Promise(r=>setTimeout(r,120));
-  }
-  cfgFields.forEach(f=>{ const el=$('c_'+f.k); if(el) f.v = f.t==='b' ? (el.checked?'1':'0') : el.value; });  // keep local copy fresh (relay URL/id gating)
-  updateRelayUI(); send('__VER__');   // refresh the shown board id in case relayid changed
-  $('cfgMsg').textContent='saved ✓';
+  try {
+    for (const f of cfgFields){ const el=$('c_'+f.k); if(!el) continue;
+      const val = f.t==='b' ? (el.checked?'1':'0') : el.value;
+      await send('__CFGSET__:'+f.k+'='+val); await new Promise(r=>setTimeout(r,120));
+    }
+    cfgFields.forEach(f=>{ const el=$('c_'+f.k); if(el) f.v = f.t==='b' ? (el.checked?'1':'0') : el.value; });  // keep local copy fresh (relay URL/id gating)
+    updateRelayUI(); send('__VER__');   // refresh the shown board id in case relayid changed
+    $('cfgMsg').textContent='saved ✓';
+  } catch(e){ $('cfgMsg').textContent='save failed: '+e.message+' — reconnect and retry'; }
 };
 
 $('cfgExport').onclick=async()=>{
