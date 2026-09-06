@@ -59,6 +59,7 @@ function longPoll(key, res) {
 const readBody = (req, cb) => { let b = ''; req.on('data', c => { b += c; if (b.length > 8192) req.destroy(); }); req.on('end', () => cb(b)); };
 
 http.createServer((req, res) => {
+  console.log(new Date().toISOString().slice(11, 19), req.method, req.url);   // watch board pulls + portal polls
   if (req.method === 'OPTIONS') { res.writeHead(204, CORS); return res.end(); }
 
   const parts = new URL(req.url, 'http://x').pathname.split('/').filter(Boolean);
