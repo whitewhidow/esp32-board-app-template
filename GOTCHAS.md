@@ -92,3 +92,17 @@ the picker just says "no targets"). To join a mesh:
 - **Don't drop queued commands.** Both FreeRTOS queues (cmd/reply) must **block** (`xQueueSend` with a timeout), not use a 0 timeout — a burst (rapid keys, chunked file) otherwise silently overflows and loses items.
 - **Lowercase the URL scheme.** Mobile keyboards auto-capitalise the first letter → `Https://`, which a naive `startsWith("https")` reads as plain http → every request fails. Normalise on save AND load; set `autocapitalize=none` on the input.
 - **Render free tier sleeps** (~15min idle → ~30-50s cold start). The portal pre-warms with `GET /health` before "Go remote"; the board's continuous long-poll keeps it warm during a session.
+
+### Open-AP roaming
+
+- **A captive-portal open AP poisons the DNS cache.** "Find open AP" scans open networks and keeps the first whose `GET /health` returns the relay's `ok` body (a captive portal returns a login page, so it's rejected). But a captive DNS resolves *every* host to its own login IP, and **that entry survives the fallback to real WiFi** — so every later TLS connect hits the wrong IP and fails with HTTPClient `-1` (looks like a dead relay; heap is fine). Fix: `dns_clear_cache()` (`lwip/dns.h`) after leaving a rejected AP / on fallback / on every connect; a hard WiFi cycle (`disconnect(true,true)+WIFI_OFF`) on fallback; probe `/health` on a **throwaway** `WiFiClientSecure` so a captive handshake can't wedge the persistent poll socket.
+- **Green/blue means the relay actually answered**, not merely WiFi-up — confirmed by a fast `GET /health` probe on connect (a false "online" used to hide a dead link). A bad token / unreachable relay stays orange.
+- **After a drop, retry the full find-open+creds cycle every 5 min** (ESP auto-reconnect covers a blip meanwhile); the *initial* connect retries fast (~8s) so a board that can't reach a network at boot keeps trying.
+
+### Mailbox id
+
+- **Derive the id from the factory eFuse MAC, not the BLE address.** NimBLE's address can be a rotating/resolvable private address that changes each boot, which would change the mailbox id every boot — so a saved id goes stale on an auto-boot (board polls one id, portal talks to another; "green but can't connect"). `ESP.getEfuseMac()` is stable and available before BLE init. A custom `relayid` overrides it.
+
+### Chunked transfers must be PULL, not PUSH
+
+- **Never push-stream a multi-chunk transfer over the relay.** If the board sends N chunks as N separate `/reply` POSTs, an occasional POST drops and you get a silent *partial* (BLE has no per-chunk POST so it's always fine). Use a **request/response per chunk** like the note editor: `__NOTEGET__:<off>` → one `note:<off>:<total>:<base64>` reply; the portal loops requesting each offset (wrap in a retry), so a dropped reply just re-requests that chunk. Base64 keeps data safe past the relay's `\x1e` record-separator batching.

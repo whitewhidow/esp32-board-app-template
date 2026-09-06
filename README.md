@@ -25,7 +25,13 @@ them as a worked example.
   BLE range via a tiny relay you host (a zero-dep Node mailbox): it joins WiFi (STA) and
   long-polls the relay for the *same* commands, so the portal controls it over the internet.
   TLS keep-alive + request batching keep it responsive. S3 boards keep BLE live alongside; the
-  no-PSRAM C5 drops it (auto-detected). Set the Relay URL in Config, then "Go remote" in the portal.
+  no-PSRAM C5 drops it (auto-detected). Set the Relay URL in Config, then **Go remote**, or
+  **Find open AP + go remote** to scan for an open Wi-Fi that can reach the relay (it verifies
+  `/health` so captive portals are rejected, and falls back to saved creds). The mailbox id is
+  stable across boots (factory MAC, or a custom `relayid`); the STA marker shows the link state
+  (orange connecting, blinking blue scanning, solid blue on an open AP, green on saved creds);
+  and the portal's **Board feedback** log echoes every action and reply. On a drop it retries the
+  full find-open+creds cycle every 5 min (the initial connect retries fast).
 - **Config** (`config.cpp`) — NVS settings; declare fields once, the portal auto-renders
   the form. Includes the **boot-splash on/off** toggle, **Export all / Import** of the whole
   config (+ WiFi) as a JSON file, and named **config profiles** saved in the browser.
