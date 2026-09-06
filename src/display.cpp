@@ -4,6 +4,7 @@
 #include "version.h"
 #include "relay.h"
 #include "config.h"
+#include "ble_control.h"
 
 #if !APP_HAS_DISPLAY
 // ---- Headless: the BLE portal is the UI. Every draw is a no-op. -------------------
@@ -144,7 +145,10 @@ void dispStatus(bool ble, bool wifi, int batt) {
   int W = lcd.width();
   lcd.fillRect(0, STAT_Y, W, 12, 0x000000u);
   lcd.setTextSize(1); lcd.setCursor(2, STAT_Y);
-  lcd.setTextColor(ble  ? lcd.color888(0x3F,0xB9,0x50) : lcd.color888(0x5A,0x63,0x6B), 0); lcd.print("BLE ");
+  // BLE: red = radio off (freed for the relay), orange = advertising, green = a portal is connected.
+  int bs = bleState();
+  uint32_t bc = bs == 2 ? lcd.color888(0x3F,0xB9,0x50) : bs == 1 ? lcd.color888(0xE5,0xA9,0x4D) : lcd.color888(0xE5,0x48,0x4D);
+  lcd.setTextColor(bc, 0); lcd.print("BLE ");
   lcd.setTextColor(wifi ? lcd.color888(0x3F,0xB9,0x50) : lcd.color888(0x5A,0x63,0x6B), 0); lcd.print("WIFI ");
   // STA = remote relay link: red if no relay URL set, orange if set but not online, green when polling.
   int rs = relayState(); bool relayCfgd = cfgGet("relayurl", "").length() > 0;

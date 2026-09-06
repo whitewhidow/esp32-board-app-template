@@ -11,6 +11,7 @@ void        bleNotify(const char* line);    // board -> portal (ONE line per cal
 void        bleHandleExternal(const char* cmd);  // run a command from another transport (the relay)
 void        bleStop();                      // tear BLE down to free heap for TLS (until reboot)
 bool        bleConnected();                 // is a portal connected?
+int         bleState();                     // 0 disabled · 1 advertising · 2 connected
 const char* bleMac();
 int         bleRssi();                      // BLE link RSSI in dBm (0 = not connected)
 

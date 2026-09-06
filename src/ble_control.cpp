@@ -22,6 +22,7 @@
 static NimBLECharacteristic* s_tx = nullptr;
 static char          g_cmd[320] = "";
 static volatile bool g_cmdReq   = false;
+static bool          g_bleUp     = false;   // NimBLE initialised (false after bleStop)
 static bool          g_connected = false;
 static uint16_t      g_connHandle = BLE_HS_CONN_HANDLE_NONE;   // for the link RSSI
 static char          g_mac[18]  = "";
@@ -47,11 +48,12 @@ void bleNotify(const char* line) {
 // Run a command that arrived over the relay: same handler, replies routed to the relay.
 void bleHandleExternal(const char* cmd) { s_replyToRelay = true; handleCmd(cmd); s_replyToRelay = false; }
 bool bleConnected() { return g_connected; }
+int  bleState() { return !g_bleUp ? 0 : (g_connected ? 2 : 1); }   // 0 disabled · 1 advertising · 2 connected
 const char* bleMac() { return g_mac; }
 // Tear BLE all the way down to reclaim its heap (~40KB) — needed on no-PSRAM boards so a
 // TLS/https relay connection has room to allocate. BLE comes back on the next reboot.
 void bleStop() {
-  g_connected = false; g_connHandle = BLE_HS_CONN_HANDLE_NONE; s_tx = nullptr;
+  g_connected = false; g_connHandle = BLE_HS_CONN_HANDLE_NONE; s_tx = nullptr; g_bleUp = false;
   NimBLEDevice::deinit(true);
 }
 
@@ -97,6 +99,7 @@ void bleBegin(const char* advName) {
   adv->enableScanResponse(true);
   NimBLEDevice::startAdvertising();
   strncpy(g_mac, NimBLEDevice::getAddress().toString().c_str(), sizeof(g_mac) - 1);
+  g_bleUp = true;
 }
 
 // Built-in commands, then the app's. Returns after handling.
