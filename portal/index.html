@@ -55,6 +55,7 @@
   <span id="hHeap" class="chip" hidden></span>
   <span id="hFs" class="chip" hidden></span>
   <span id="hRly" class="chip" hidden></span>
+  <span id="hSsid" class="chip" hidden></span>
 </div>
 
 <div id="app" hidden>
@@ -173,7 +174,7 @@ function startRemote(label){                     // reveal the app driven purely
   if($('connMsg')) $('connMsg').textContent='';
   $('hdr').hidden=false; $('app').hidden=false; $('hConn').textContent='● '+label;
   relayPollLoop(); send('__VER__'); setTimeout(()=>send('__STATUS__'),400); setTimeout(()=>send('__WIFIST__'),600);
-  setInterval(()=>{ if(relay) send('__STATUS__'); }, 10000);   // keep badges fresh over the relay
+  setInterval(()=>{ if(relay){ send('__STATUS__'); send('__WIFIST__'); } }, 10000);   // keep badges + SSID fresh over the relay
 }
 
 // ---- request/response over BLE: send a command, await the reply that starts with `prefix` ----
@@ -230,9 +231,15 @@ function handleLine(v){
         $('hFs').style.color=(free<tot*0.1)?'#e5a94d':''; $('hFs').hidden=false; }
       else $('hFs').hidden=true; }
     const rl=v.match(/rly=(\d+)/); if(rl){ const n=+rl[1];
-      $('hRly').textContent='📡 '+(n===2?'remote':n===3?'scanning':'connecting'); $('hRly').style.color=(n===2?'var(--green)':n===3?'#5aa9ff':'#e5a94d'); $('hRly').hidden=(n===0); }
+      const lbl=n===4?'remote (open AP)':n===2?'remote':n===3?'scanning':'connecting';
+      const col=n===4?'#5aa9ff':n===2?'var(--green)':n===3?'#5aa9ff':'#e5a94d';
+      $('hRly').textContent='📡 '+lbl; $('hRly').style.color=col; $('hRly').hidden=(n===0); }
     return; }
-  if (v.startsWith('wifi:')) { const p=v.slice(5).split('|'); wifiConfigured=(p[0]&&p[0]!=='-'); $('wifiStat').textContent = 'wifi: ' + p.slice(0,2).join(' — '); return; }
+  if (v.startsWith('wifi:')) { const p=v.slice(5).split('|'); wifiConfigured=(p[0]&&p[0]!=='-');
+    // p = [ssid, status, ip, ver] — show which AP we're actually on + the IP
+    const ip=(p[2]&&p[2]!=='-')?(' — '+p[2]):''; $('wifiStat').textContent = 'wifi: ' + p.slice(0,2).join(' — ') + ip;
+    const hs=$('hSsid'); if(hs){ const on=(p[1]==='connected'); hs.textContent = on?('📶 '+p[0]):''; hs.hidden=!on; }
+    return; }
   if (v.startsWith('ota:'))  { $('otaStat').textContent = v.slice(4); return; }
   log('board: ' + v);
 }
@@ -441,7 +448,7 @@ $('rmScan').onclick = async () => {
     if(r.startsWith('relay:up')){ const id=r.slice(9).trim();
       try{ localStorage.setItem('relay-last', JSON.stringify({url,id,tok})); }catch(e){}
       $('rcUrl').value=url; $('rcId').value=id; $('rcTok').value=tok;
-      showConnectScreen('Board is scanning for an open AP as '+id+' (STA is blue). Connect via the relay once it turns green.'); }
+      showConnectScreen('Board is scanning for an open AP as '+id+' (STA blinks blue). Connect via the relay once it goes solid blue (open AP) or green (fell back to saved WiFi).'); }
     else $('rmMsg').textContent=r; }
   catch(e){ $('rmMsg').textContent='failed: '+e.message; }
 };

@@ -150,10 +150,13 @@ void dispStatus(bool ble, bool wifi, int batt) {
   uint32_t bc = bs == 2 ? lcd.color888(0x3F,0xB9,0x50) : bs == 1 ? lcd.color888(0xE5,0xA9,0x4D) : lcd.color888(0xE5,0x48,0x4D);
   lcd.setTextColor(bc, 0); lcd.print("BLE ");
   lcd.setTextColor(wifi ? lcd.color888(0x3F,0xB9,0x50) : lcd.color888(0x5A,0x63,0x6B), 0); lcd.print("WIFI ");
-  // STA = remote relay link: red=no URL, orange=set but off/connecting, blue=scanning open APs, green=polling.
+  // STA = remote relay link: red=no URL, orange=set but off/connecting, blinking blue=scanning open APs,
+  // solid blue=online via an open AP, green=online via saved creds.
   int rs = relayState(); bool relayCfgd = cfgGet("relayurl", "").length() > 0;
-  uint32_t sc = rs == 3      ? lcd.color888(0x5a,0xA9,0xFF)       // blue: scanning/attempting an open AP
-              : rs == 2      ? lcd.color888(0x3F,0xB9,0x50)       // green: online
+  bool blink = (millis() / 500) & 1;                             // ~1 Hz blink for the scanning state
+  uint32_t sc = rs == 3      ? (blink ? lcd.color888(0x5a,0xA9,0xFF) : lcd.color888(0x1A,0x2B,0x40))  // blinking blue
+              : rs == 4      ? lcd.color888(0x5a,0xA9,0xFF)       // solid blue: online via an open AP
+              : rs == 2      ? lcd.color888(0x3F,0xB9,0x50)       // green: online via saved creds
               : !relayCfgd   ? lcd.color888(0xE5,0x48,0x4D)       // red: no relay URL configured
               :                lcd.color888(0xE5,0xA9,0x4D);      // orange: configured but off / connecting
   lcd.setTextColor(sc, 0); lcd.print("STA ");

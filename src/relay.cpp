@@ -13,7 +13,8 @@
 static String        s_url, s_tok, s_id;
 static volatile bool s_active = false;
 static volatile bool s_openAp = false;         // scan open APs for one that can reach the relay
-static volatile int  s_state  = 0;             // 0 off, 1 connecting (WiFi down), 2 online (polling)
+static volatile bool s_onOpen = false;         // currently connected via an open AP (vs saved creds)
+static volatile int  s_state  = 0;             // 0 off · 1 connecting · 2 online(creds) · 3 scanning · 4 online(open AP)
 static TaskHandle_t  s_task   = nullptr;
 static QueueHandle_t s_cmdQ   = nullptr;       // task -> main loop  (pulled commands)
 static QueueHandle_t s_replyQ = nullptr;       // main loop -> task  (replies to POST)
@@ -117,6 +118,7 @@ static bool relayTryOpenAps() {
     if (!ok) WiFi.disconnect();
   }
   WiFi.scanDelete();
+  s_onOpen = ok;                                  // remember HOW we're online (open AP vs creds fallback)
   return ok;
 }
 
@@ -147,7 +149,9 @@ static void relayTask(void*) {
       }
       continue;
     }
-    if (!wasUp) { wasUp = true; s_state = 2; Serial.printf("[relay] WiFi up, IP %s — polling %s/pull/%s\n", WiFi.localIP().toString().c_str(), s_url.c_str(), s_id.c_str()); }
+    if (!wasUp) { wasUp = true; s_state = s_onOpen ? 4 : 2;    // 4=online via open AP (solid blue), 2=via creds (green)
+      Serial.printf("[relay] WiFi up (%s), IP %s — polling %s/pull/%s\n", s_onOpen ? "open AP" : "creds",
+                    WiFi.localIP().toString().c_str(), s_url.c_str(), s_id.c_str()); }
     RelayMsg m;
     while (xQueueReceive(s_replyQ, &m, 0)) httpPostReply(m.s);     // send pending replies first (single TLS)
     String batch = httpPull();                     // may hold several commands joined by SEP
@@ -185,7 +189,7 @@ bool relayConnect(const String& url, const String& token) {
   s_state = 1;
   Serial.printf("[relay] go remote: %s as %s — bringing up WiFi STA\n", s_url.c_str(), s_id.c_str());
   netConnect();                                  // STA up with the saved WiFi creds
-  s_active = true; s_openAp = false;
+  s_active = true; s_openAp = false; s_onOpen = false;
   if (!s_cmdQ)   s_cmdQ   = xQueueCreate(16, sizeof(RelayMsg));
   if (!s_replyQ) s_replyQ = xQueueCreate(16, sizeof(RelayMsg));
   if (!s_task)   xTaskCreatePinnedToCore(relayTask, "relay", 8192, nullptr, 1, &s_task, 0);
@@ -194,6 +198,9 @@ bool relayConnect(const String& url, const String& token) {
 
 // Go remote by SCANNING for an open AP that can reach the relay (vs using saved creds).
 bool relayGoOpenAp() {
+  static uint32_t lastGo = 0;                    // debounce: a double-send (or a re-pulled cmd) must not
+  if (s_active && s_openAp && millis() - lastGo < 5000) return true;   // thrash an in-progress scan
+  lastGo = millis();
   s_url = cfgGet("relayurl", ""); normUrl(s_url);
   if (!s_url.length()) return false;
   s_tok = cfgGet("relaytok", "");

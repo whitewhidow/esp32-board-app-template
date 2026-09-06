@@ -11,7 +11,7 @@ bool        relayConnect(const String& url, const String& token);  // save + STA
 bool        relayGoOpenAp();                               // scan for an open AP that reaches the relay, then poll
 void        relayStop();                                   // stop polling (leaves WiFi as-is)
 bool        relayActive();
-int         relayState();                                  // 0 off · 1 connecting (WiFi down) · 2 online (polling)
+int         relayState();                                  // 0 off · 1 connecting · 2 online(creds) · 3 scanning open APs · 4 online(open AP)
 const char* relayId();                                     // this board's mailbox id (config "relayid", else "bt-<mac6>")
 void        relayRefreshId();                              // re-read the id after a config change
 bool        relayChipCanCoexist();                         // BLE+WiFi+TLS at once? (S3 yes; C5 only w/ PSRAM)

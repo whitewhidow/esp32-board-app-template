@@ -49,8 +49,10 @@ String netStatus() {
   wl_status_t w = WiFi.status();
   // config-only board: creds are stored, not kept connected — so "saved", not "connecting".
   const char* st = (w == WL_CONNECTED) ? "connected" : (s_ssid.length() ? "saved" : "unset");
+  // When up, report the SSID we're ACTUALLY on — may be an open AP the relay found, not the saved creds.
+  String ssid = (w == WL_CONNECTED && WiFi.SSID().length()) ? WiFi.SSID() : s_ssid;
   String ip = (w == WL_CONNECTED) ? WiFi.localIP().toString() : String("-");
-  return String("wifi:") + (s_ssid.length() ? s_ssid : String("-")) + "|" + st + "|" + ip + "|" + APP_VERSION;
+  return String("wifi:") + (ssid.length() ? ssid : String("-")) + "|" + st + "|" + ip + "|" + APP_VERSION;
 }
 
 // Blocking OTA download into the spare slot. cb(pct,msg) reports progress/errors.

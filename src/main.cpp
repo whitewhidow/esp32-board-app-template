@@ -58,6 +58,7 @@ void loop() {
 #endif
 
   static uint32_t t = 0;
-  if (millis() - t > 1000) { t = millis(); dispStatus(bleConnected(), netConfigured(), batteryPct()); }
+  uint32_t iv = relayState() == 3 ? 250 : 1000;   // refresh fast while scanning so the STA marker can blink
+  if (millis() - t > iv) { t = millis(); dispStatus(bleConnected(), netConfigured(), batteryPct()); }
   delay(10);
 }
