@@ -6,6 +6,7 @@
 #include "config.h"
 #include "battery.h"
 #include "clock.h"
+#include "relay.h"
 #include <LittleFS.h>
 #include "switch_targets.h"
 #include <NimBLEDevice.h>
@@ -33,12 +34,18 @@ int bleRssi() {
   return (ble_gap_conn_rssi(g_connHandle, &rssi) == 0) ? (int)rssi : 0;
 }
 
+static void handleCmd(const char* cmd);   // fwd: also called for relay-sourced commands
+static bool s_replyToRelay = false;        // while true, replies go to the relay, not BLE
+
 // GOTCHA: setValue()+notify() has no flush, so two rapid notifies RACE (the 2nd
 // clobbers the 1st). Always send ONE line per response; pack multiple fields with a
 // separator (e.g. "ver:1.0.0|Board Name") rather than two notify() calls.
 void bleNotify(const char* line) {
+  if (s_replyToRelay) { relayPostReply(line); return; }   // reply to whoever asked (relay transport)
   if (s_tx) { s_tx->setValue((uint8_t*)line, strlen(line)); s_tx->notify(); }
 }
+// Run a command that arrived over the relay: same handler, replies routed to the relay.
+void bleHandleExternal(const char* cmd) { s_replyToRelay = true; handleCmd(cmd); s_replyToRelay = false; }
 bool bleConnected() { return g_connected; }
 const char* bleMac() { return g_mac; }
 
@@ -96,6 +103,14 @@ static void handleCmd(const char* cmd) {
     bleNotify(netStatus().c_str());
   } else if (!strncmp(cmd, "__TIME__:", 9)) {                 // phone-provided wall clock (epoch secs)
     clockSet(strtoul(cmd + 9, nullptr, 10)); bleNotify("time:ok");
+  } else if (!strncmp(cmd, "__RELAY__:", 10)) {               // "url|token" -> also go remote over WiFi
+    const char* a = cmd + 10; const char* bar = strchr(a, '|');
+    String url = bar ? String(a).substring(0, bar - a) : String(a);
+    String tok = bar ? String(bar + 1) : String();
+    if (!netConfigured()) bleNotify("relay:err set WiFi first");
+    else { relayConnect(url, tok); bleNotify((String("relay:up ") + relayId()).c_str()); }
+  } else if (!strcmp(cmd, "__RELAYOFF__")) {
+    relayStop(); bleNotify("relay:off");
   } else if (!strcmp(cmd, "__WIFIGET__")) {                    // WiFi creds for settings export (BLE link is bonded/encrypted)
     bleNotify((String("wifiget:") + netCreds()).c_str());
   } else if (!strncmp(cmd, "__WIFI__:", 9)) {                 // "__WIFI__:ssid|pass"

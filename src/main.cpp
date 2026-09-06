@@ -11,6 +11,7 @@
 #include "battery.h"
 #include "app.h"
 #include "led.h"
+#include "relay.h"
 
 void setup() {
   Serial.begin(115200);
@@ -27,6 +28,7 @@ void setup() {
 
   netBegin();                        // load saved WiFi creds (no auto-connect)
   bleBegin(APP_NAME);                // advertised BLE name (set APP_NAME in version.h)
+  relayBegin();                      // load saved relay url/token (no auto-connect)
   appSetup();
   ledInit();
 
@@ -41,6 +43,7 @@ void setup() {
 
 void loop() {
   bleTick();                         // process portal commands + push status
+  relayTick();                       // dispatch any commands pulled from the relay
   appLoop();                         // your app
   ledTick();                         // advance any LED flash
 

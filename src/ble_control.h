@@ -8,6 +8,7 @@
 void        bleBegin(const char* advName);  // sets a distinct MAC, starts NimBLE + the control service
 void        bleTick();                      // call from loop(): process queued commands + push status
 void        bleNotify(const char* line);    // board -> portal (ONE line per call)
+void        bleHandleExternal(const char* cmd);  // run a command from another transport (the relay)
 bool        bleConnected();                 // is a portal connected?
 const char* bleMac();
 int         bleRssi();                      // BLE link RSSI in dBm (0 = not connected)
