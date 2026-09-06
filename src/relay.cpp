@@ -2,6 +2,7 @@
 #include "relay.h"
 #include "ble_control.h"
 #include "netota.h"
+#include "config.h"
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
@@ -19,11 +20,14 @@ struct RelayMsg { char s[320]; };
 static bool isHttps() { return s_url.startsWith("https"); }
 
 static void computeId() {
-  String m = bleMac() ? String(bleMac()) : String("000000");
+  String cid = cfgGet("relayid", ""); cid.trim(); cid.replace(" ", ""); cid.replace("/", "");
+  if (cid.length()) { s_id = cid; return; }               // custom id from config
+  String m = bleMac() ? String(bleMac()) : String("000000");   // default: bt-<last 6 hex of BLE MAC>
   m.replace(":", "");
   if (m.length() > 6) m = m.substring(m.length() - 6);
   s_id = "bt-" + m;
 }
+void relayRefreshId() { s_id = ""; computeId(); }           // re-read after a config change
 const char* relayId() { if (!s_id.length()) computeId(); return s_id.c_str(); }
 bool relayActive() { return s_active; }
 int  relayState()  { return s_state; }
@@ -86,7 +90,15 @@ static void relayTask(void*) {
   }
 }
 
-void relayBegin() { /* relay URL/token now live in the app config (relayurl/relaytok); no auto-connect */ }
+void relayBegin() {
+  // Optional auto-go-remote at boot (config "relayauto") — for a headless/deployed board
+  // that should come back online after a power blip. Needs a Relay URL + saved WiFi creds.
+  if (cfgGet("relayauto", "0") != "1") return;
+  String url = cfgGet("relayurl", "");
+  if (!url.length() || !netConfigured()) { Serial.println("[relay] auto-boot skipped (no URL or WiFi creds)"); return; }
+  Serial.println("[relay] auto-connect on boot");
+  relayConnect(url, cfgGet("relaytok", ""));
+}
 
 bool relayConnect(const String& url, const String& token) {
   s_url = url; s_url.trim(); while (s_url.endsWith("/")) s_url.remove(s_url.length() - 1);

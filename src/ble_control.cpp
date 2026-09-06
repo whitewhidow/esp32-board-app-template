@@ -143,7 +143,9 @@ static void handleCmd(const char* cmd) {
     bleNotify((String("cfg:") + (off + chunk.length()) + ":" + total + ":" + chunk).c_str());
   } else if (!strncmp(cmd, "__CFGSET__:", 11)) {               // "__CFGSET__:key=value"
     const char* a = cmd + 11; const char* eq = strchr(a, '=');
-    if (eq) { cfgSet(String(a).substring(0, eq - a).c_str(), eq + 1); bleNotify("cfg:ok"); }
+    if (eq) { String key = String(a).substring(0, eq - a); cfgSet(key.c_str(), eq + 1);
+      if (key == "relayid") relayRefreshId();                 // custom mailbox id takes effect immediately
+      bleNotify("cfg:ok"); }
   } else {
     if (!appHandleCommand(cmd)) bleNotify((String("err:unknown ") + cmd).c_str());
   }

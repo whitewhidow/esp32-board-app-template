@@ -103,7 +103,8 @@
     <div class="row"><button id="wifiSave" style="flex:1">Save</button><button id="wifiClear" class="warn">Forget</button></div>
     <div id="goRemoteBlock" hidden>
       <div class="sub" style="margin-top:12px"><b>Go remote</b> — connect this board to the relay set in <b>Config</b> so you can control it over the internet (keeps BLE too). Needs the WiFi creds above saved. Note the board id it reports, so you can reconnect from anywhere.</div>
-      <div class="row" style="margin-top:4px"><button id="rmGo" style="flex:1">Go remote (relay)</button><span id="rmMsg" class="sub" style="margin:0;flex:2;align-self:center"></span></div>
+      <button id="rmGo" style="width:100%;margin-top:4px">Go remote (relay)</button>
+      <div id="rmMsg" class="sub" style="margin-top:4px"></div>
     </div>
     <div id="goRemoteHint" class="sub" style="margin-top:12px">Set a <b>Relay URL</b> in Config to enable remote control over the internet.</div>
     <div id="rmId" class="sub" style="margin-top:8px"></div>
@@ -320,6 +321,8 @@ $('cfgSave').onclick = async () => {
     const val = f.t==='b' ? (el.checked?'1':'0') : el.value;
     await send('__CFGSET__:'+f.k+'='+val); await new Promise(r=>setTimeout(r,120));
   }
+  cfgFields.forEach(f=>{ const el=$('c_'+f.k); if(el) f.v = f.t==='b' ? (el.checked?'1':'0') : el.value; });  // keep local copy fresh (relay URL/id gating)
+  updateRelayUI(); send('__VER__');   // refresh the shown board id in case relayid changed
   $('cfgMsg').textContent='saved ✓';
 };
 
