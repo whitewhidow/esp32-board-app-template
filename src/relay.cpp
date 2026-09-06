@@ -9,6 +9,8 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <freertos/queue.h>
+#include "lwip/dns.h"    // dns_clear_cache() — a captive-portal AP poisons the DNS cache (host->its login IP);
+                         // that entry survives the fallback to real WiFi, so we must flush it after switching.
 
 static String        s_url, s_tok, s_id;
 static volatile bool s_active = false;
@@ -71,9 +73,11 @@ static int httpDo(const String& u, const char* postBody, String* out) {
   else code = s_http.GET();
   if (code == 200 && out) *out = s_http.getString();
   s_http.end();                                   // with setReuse(true) this keeps the connection
+  if (code <= 0) { s_tls.stop(); s_plain.stop(); }  // connect failed (e.g. a keep-alive socket left dead by a
+                                                    // network switch) -> drop it so the next call handshakes fresh
   return code;
 }
-static String httpPull() { String out; httpDo(s_url + "/pull/" + s_id, nullptr, &out); return out; }
+static String httpPull(int* code) { String out; int c = httpDo(s_url + "/pull/" + s_id, nullptr, &out); if (code) *code = c; return out; }
 static bool   httpPostReplyOnce(const String& u, const char* line) { return httpDo(u, line, nullptr) == 200; }
 static void httpPostReply(const char* line) {    // POST /reply — retry: C5 TLS alloc is marginal and often
   String u = s_url + "/reply/" + s_id;           // succeeds on the 2nd try once a little heap frees up
@@ -87,6 +91,20 @@ void relayPostReply(const char* line) {
   if (!s_active || !s_replyQ) return;
   RelayMsg m; strlcpy(m.s, line, sizeof(m.s));
   xQueueSend(s_replyQ, &m, pdMS_TO_TICKS(4000));   // block if full — don't drop burst chunks
+}
+
+// Reachability probe on a THROWAWAY TLS client — a captive portal's failed/hijacked handshake
+// must not wedge the persistent s_tls we poll with. Returns true only for the relay's own "ok".
+static bool probeHealth() {
+  bool https = s_url.startsWith("https");
+  WiFiClientSecure sec; WiFiClient plain;
+  if (https) sec.setInsecure();
+  HTTPClient h; h.setTimeout(8000);
+  bool began = https ? h.begin(sec, s_url + "/health") : h.begin(plain, s_url + "/health");
+  if (!began) return false;
+  int code = h.GET(); String b = (code == 200) ? h.getString() : String();
+  h.end();
+  return code == 200 && b.startsWith("ok");
 }
 
 // Scan for OPEN APs and connect to the strongest one that can actually reach the relay
@@ -110,12 +128,11 @@ static bool relayTryOpenAps() {
     if (WiFi.status() == WL_CONNECTED) {
       // Must get the relay's own "ok" body — a captive portal returns 200 with a login page,
       // and a cold Render answers "ok" once it wakes (retry-scan covers a >timeout cold start).
-      String body;
-      if (httpDo(s_url + "/health", nullptr, &body) == 200 && body.startsWith("ok")) {
+      if (probeHealth()) {
         Serial.printf("[relay] '%s' reaches the relay — using it\n", ssid.c_str()); ok = true; break; }
       Serial.printf("[relay] '%s' connected but no relay (captive/cold?) — next\n", ssid.c_str());
     }
-    if (!ok) WiFi.disconnect();
+    if (!ok) { WiFi.disconnect(true); dns_clear_cache(); }   // erase the rejected AP + flush the DNS it poisoned (captive portals resolve every host to their login IP)
   }
   WiFi.scanDelete();
   s_onOpen = ok;                                  // remember HOW we're online (open AP vs creds fallback)
@@ -136,6 +153,7 @@ static void relayTask(void*) {
         if (!relayTryOpenAps()) {
           if (netConfigured()) {                        // no open AP reached the relay -> fall back to saved creds
             Serial.println("[relay] no open AP reachable — falling back to saved WiFi creds");
+            WiFi.disconnect(true, true); WiFi.mode(WIFI_OFF); vTaskDelay(pdMS_TO_TICKS(300));  // flush captive DNS/lwip state
             netConnect();
             uint32_t t0 = millis();
             while (WiFi.status() != WL_CONNECTED && millis() - t0 < 10000) vTaskDelay(pdMS_TO_TICKS(200));
@@ -149,12 +167,22 @@ static void relayTask(void*) {
       }
       continue;
     }
-    if (!wasUp) { wasUp = true; s_state = s_onOpen ? 4 : 2;    // 4=online via open AP (solid blue), 2=via creds (green)
-      Serial.printf("[relay] WiFi up (%s), IP %s — polling %s/pull/%s\n", s_onOpen ? "open AP" : "creds",
-                    WiFi.localIP().toString().c_str(), s_url.c_str(), s_id.c_str()); }
+    if (!wasUp) { wasUp = true;
+      s_tls.stop(); s_plain.stop();                // a keep-alive socket from a previous network (open-AP scan / captive) is dead — start fresh
+      dns_clear_cache();                           // flush any host->captive-IP entry left by a probed open AP
+      // Confirm the relay is reachable with a FAST isolated GET /health so we show online immediately,
+      // instead of sitting orange for the ~25s a first idle long-poll parks.
+      bool reach = probeHealth();
+      s_state = reach ? (s_onOpen ? 4 : 2) : 1;
+      Serial.printf("[relay] WiFi up (%s), IP %s — relay %s — polling %s/pull/%s\n", s_onOpen ? "open AP" : "creds",
+                    WiFi.localIP().toString().c_str(), reach ? "reachable" : "UNREACHABLE", s_url.c_str(), s_id.c_str()); }
     RelayMsg m;
     while (xQueueReceive(s_replyQ, &m, 0)) httpPostReply(m.s);     // send pending replies first (single TLS)
-    String batch = httpPull();                     // may hold several commands joined by SEP
+    int code = 0; String batch = httpPull(&code);  // may hold several commands joined by SEP
+    // Keep green/blue while the relay answers (200 = commands, 204 = idle long-poll); a bad token (401)
+    // or an unreachable relay (<=0) drops to orange so a dead link is visible.
+    if (code == 200 || code == 204) s_state = s_onOpen ? 4 : 2;
+    else { s_state = 1; if (millis() - lastLog > 4000) { lastLog = millis(); Serial.printf("[relay] pull got %d — relay not reachable (rssi=%d)\n", code, WiFi.RSSI()); } }
     if (batch.length()) {
       int start = 0;
       while (start < (int)batch.length()) {
