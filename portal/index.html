@@ -108,6 +108,8 @@
     </div>
     <div id="goRemoteHint" class="sub" style="margin-top:12px">Set a <b>Relay URL</b> in Config to enable remote control over the internet.</div>
     <div id="rmId" class="sub" style="margin-top:8px"></div>
+    <button id="rebootBtn" class="sec" style="width:100%;margin-top:12px">Reboot board</button>
+    <div class="sub" style="margin-top:2px">Works over the relay too — reboot to get BLE back on a remote board (turn off <b>Connect relay on boot</b> first if it's set, or it'll go remote again).</div>
   </section>
 
   <section id="t-update" hidden>
@@ -406,6 +408,11 @@ $('rmGo').onclick = async () => {
       $('hConn').textContent='● remote '+id; $('rmMsg').textContent='remote as '+id+' — watch the board: STA turns green when it is actually online'; }
     else $('rmMsg').textContent=r; }
   catch(e){ $('rmMsg').textContent='failed: '+e.message; }
+};
+$('rebootBtn').onclick = () => {
+  if(!confirm('Reboot the board now?'+(relay?' It will come back with BLE up (unless “Connect relay on boot” is set).':''))) return;
+  send('__REBOOT__');
+  if(relay){ relay=null; _pollOn=false; $('hConn').textContent='● rebooting…'; setTimeout(()=>location.reload(), 2500); }
 };
 // Fresh-load remote connect: drive a board that's already on the relay, no BLE.
 $('rcGo').onclick = () => {

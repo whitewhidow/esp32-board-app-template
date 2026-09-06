@@ -48,6 +48,12 @@ void bleNotify(const char* line) {
 void bleHandleExternal(const char* cmd) { s_replyToRelay = true; handleCmd(cmd); s_replyToRelay = false; }
 bool bleConnected() { return g_connected; }
 const char* bleMac() { return g_mac; }
+// Tear BLE all the way down to reclaim its heap (~40KB) — needed on no-PSRAM boards so a
+// TLS/https relay connection has room to allocate. BLE comes back on the next reboot.
+void bleStop() {
+  g_connected = false; g_connHandle = BLE_HS_CONN_HANDLE_NONE; s_tx = nullptr;
+  NimBLEDevice::deinit(true);
+}
 
 class RxCB : public NimBLECharacteristicCallbacks {
   void onWrite(NimBLECharacteristic* c, NimBLEConnInfo&) override {
@@ -110,9 +116,15 @@ static void handleCmd(const char* cmd) {
     else { url = cfgGet("relayurl", ""); tok = cfgGet("relaytok", ""); }               // else use saved config
     if (!netConfigured())   bleNotify("relay:err set WiFi first");
     else if (!url.length()) bleNotify("relay:err set a Relay URL in Config");
-    else { relayConnect(url, tok); bleNotify((String("relay:up ") + relayId()).c_str()); }
+    else { relayConnect(url, tok); bleNotify((String("relay:up ") + relayId()).c_str());
+      // Default: drop BLE so the https/TLS relay connection has heap (no-PSRAM boards can't
+      // do BLE+WiFi+TLS at once). "Keep BLE when remote" opts a roomy board out.
+      if (cfgGet("relaykeepble", "0") != "1") { delay(350); bleStop(); }   // 350ms lets the notify flush first
+    }
   } else if (!strcmp(cmd, "__RELAYOFF__")) {
     relayStop(); bleNotify("relay:off");
+  } else if (!strcmp(cmd, "__REBOOT__")) {                    // remote reboot (over relay) -> BLE returns on boot
+    bleNotify("reboot:ok"); delay(300); ESP.restart();
   } else if (!strcmp(cmd, "__WIFIGET__")) {                    // WiFi creds for settings export (BLE link is bonded/encrypted)
     bleNotify((String("wifiget:") + netCreds()).c_str());
   } else if (!strncmp(cmd, "__WIFI__:", 9)) {                 // "__WIFI__:ssid|pass"
