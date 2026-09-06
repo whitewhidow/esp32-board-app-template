@@ -105,6 +105,8 @@
     <div id="goRemoteBlock" hidden>
       <div class="sub" style="margin-top:12px"><b>Go remote</b> — connect this board to the relay set in <b>Config</b> so you can control it over the internet (keeps BLE too). Needs the WiFi creds above saved. Note the board id it reports, so you can reconnect from anywhere.</div>
       <button id="rmGo" style="width:100%;margin-top:4px">Go remote (relay)</button>
+      <button id="rmScan" class="sec" style="width:100%;margin-top:4px">Find open AP + go remote</button>
+      <div class="sub" style="margin-top:2px">Scans for an open Wi-Fi that can reach the relay (skips captive-portal ones) instead of using the saved creds. Enable <b>Find open AP for relay</b> in Config to do this on boot.</div>
       <div id="rmMsg" class="sub" style="margin-top:4px"></div>
     </div>
     <div id="goRemoteHint" class="sub" style="margin-top:12px">Set a <b>Relay URL</b> in Config to enable remote control over the internet.</div>
@@ -228,7 +230,7 @@ function handleLine(v){
         $('hFs').style.color=(free<tot*0.1)?'#e5a94d':''; $('hFs').hidden=false; }
       else $('hFs').hidden=true; }
     const rl=v.match(/rly=(\d+)/); if(rl){ const n=+rl[1];
-      $('hRly').textContent='📡 '+(n===2?'remote':'connecting'); $('hRly').style.color=(n===2?'var(--green)':'#e5a94d'); $('hRly').hidden=(n===0); }
+      $('hRly').textContent='📡 '+(n===2?'remote':n===3?'scanning':'connecting'); $('hRly').style.color=(n===2?'var(--green)':n===3?'#5aa9ff':'#e5a94d'); $('hRly').hidden=(n===0); }
     return; }
   if (v.startsWith('wifi:')) { const p=v.slice(5).split('|'); wifiConfigured=(p[0]&&p[0]!=='-'); $('wifiStat').textContent = 'wifi: ' + p.slice(0,2).join(' — '); return; }
   if (v.startsWith('ota:'))  { $('otaStat').textContent = v.slice(4); return; }
@@ -424,6 +426,22 @@ $('rmGo').onclick = async () => {
       // relay fields pre-filled, then connect over the relay from there.
       $('rcUrl').value=url; $('rcId').value=id; $('rcTok').value=tok;
       showConnectScreen('Board is now remote as '+id+' (BLE off). Connect via the relay below.'); }
+    else $('rmMsg').textContent=r; }
+  catch(e){ $('rmMsg').textContent='failed: '+e.message; }
+};
+// Go remote by scanning for an open AP that can reach the relay (vs saved creds).
+$('rmScan').onclick = async () => {
+  const url=cfgVal('relayurl').replace(/\/+$/,''), tok=cfgVal('relaytok');
+  if(!url){ $('rmMsg').textContent='set a Relay URL in Config first'; return; }
+  $('rmMsg').textContent='waking relay…';
+  try {
+    if(!await relayWake(url)){ $('rmMsg').textContent='relay not reachable — check the URL'; return; }
+    $('rmMsg').textContent='board is scanning for an open AP…';
+    const r=await req('__RELAYSCAN__', 'relay:', 8000);
+    if(r.startsWith('relay:up')){ const id=r.slice(9).trim();
+      try{ localStorage.setItem('relay-last', JSON.stringify({url,id,tok})); }catch(e){}
+      $('rcUrl').value=url; $('rcId').value=id; $('rcTok').value=tok;
+      showConnectScreen('Board is scanning for an open AP as '+id+' (STA is blue). Connect via the relay once it turns green.'); }
     else $('rmMsg').textContent=r; }
   catch(e){ $('rmMsg').textContent='failed: '+e.message; }
 };

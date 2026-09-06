@@ -125,6 +125,12 @@ static void handleCmd(const char* cmd) {
       bool keepBle = (cfgGet("relaykeepble", "0") == "1") || relayChipCanCoexist();
       if (!keepBle) { delay(350); bleStop(); }   // 350ms lets the notify flush first
     }
+  } else if (!strcmp(cmd, "__RELAYSCAN__")) {                 // go remote by scanning for an open AP
+    if (!relayGoOpenAp()) bleNotify("relay:err set a Relay URL in Config");
+    else { bleNotify((String("relay:up ") + relayId()).c_str());
+      bool keepBle = (cfgGet("relaykeepble", "0") == "1") || relayChipCanCoexist();
+      if (!keepBle) { delay(350); bleStop(); }
+    }
   } else if (!strcmp(cmd, "__RELAYOFF__")) {
     relayStop(); bleNotify("relay:off");
   } else if (!strcmp(cmd, "__REBOOT__")) {                    // remote reboot (over relay) -> BLE returns on boot

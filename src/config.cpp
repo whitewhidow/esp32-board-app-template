@@ -12,6 +12,7 @@ const CfgField CFG_FIELDS[] = {
   { "relaytok",   "Relay token",         's' },
   { "relayid",    "Relay id (blank = auto)", 's' },       // mailbox id; blank -> bt-<BLE MAC6>
   { "relayauto",  "Connect relay on boot",   'b' },       // auto-go-remote at startup (needs URL + WiFi)
+  { "relayopenap","Find open AP for relay",  'b' },       // scan for an open AP that can reach the relay (vs saved creds)
   { "relaykeepble","Force-keep BLE remote",   'b' },       // auto: kept if PSRAM present, else dropped for TLS heap; tick to force-keep
   // { "beep",    "Beep on event",       'b' },
 };
