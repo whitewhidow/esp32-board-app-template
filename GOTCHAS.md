@@ -83,3 +83,12 @@ the picker just says "no targets"). To join a mesh:
 - Give **each** app a **distinct `APP_BLE_MAC_TAG`** (`board.h`) or the host serves a stale GATT cache after the hop.
 - Every target must share this app's **chip + identical A/B partition table** (app slots at the same offsets) and publish an app-only bin for the matching env. 4MB single-app boards (no spare slot) can't switch — the fetch errors cleanly.
 - **Data:** NVS config survives a switch; **LittleFS does not** (each app format-mounts its own FS). Sync/export anything important before switching.
+
+## Relay (remote control over WiFi)
+
+- **BLE + WiFi + TLS heap:** the **no-PSRAM C5** (Waveshare) can't hold all three at once — a TLS handshake fails with `SSL - Memory allocation failed (-32512)`. So going remote **drops BLE** there. **S3 boards keep BLE** even without PSRAM (enough SRAM); C5 keeps it only with PSRAM. `relayChipCanCoexist()` decides; `relaykeepble` forces keep.
+- **One TLS at a time.** All HTTP lives in a single task (drain the reply queue, then pull) — never overlap a pull and a POST, or a second TLS context won't fit the no-PSRAM heap.
+- **TLS keep-alive is the latency win.** A fresh handshake per request is ~500ms; reuse one persistent `WiFiClientSecure` (`setReuse(true)`) across pull/post. Plus **batching**: the relay returns all queued items per request (joined by `\x1e`), so a burst drains in one round-trip.
+- **Don't drop queued commands.** Both FreeRTOS queues (cmd/reply) must **block** (`xQueueSend` with a timeout), not use a 0 timeout — a burst (rapid keys, chunked file) otherwise silently overflows and loses items.
+- **Lowercase the URL scheme.** Mobile keyboards auto-capitalise the first letter → `Https://`, which a naive `startsWith("https")` reads as plain http → every request fails. Normalise on save AND load; set `autocapitalize=none` on the input.
+- **Render free tier sleeps** (~15min idle → ~30-50s cold start). The portal pre-warms with `GET /health` before "Go remote"; the board's continuous long-poll keeps it warm during a session.

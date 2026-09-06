@@ -21,6 +21,11 @@ them as a worked example.
   via `appHandleCommand()`.
 - **WiFi OTA** (`netota.cpp`) — reboot-to-fetch self-update into an A/B slot (works even
   on headless / single-button boards).
+- **Remote control over WiFi** (`relay.cpp` + [`relay/`](relay/)) — drive a board from beyond
+  BLE range via a tiny relay you host (a zero-dep Node mailbox): it joins WiFi (STA) and
+  long-polls the relay for the *same* commands, so the portal controls it over the internet.
+  TLS keep-alive + request batching keep it responsive. S3 boards keep BLE live alongside; the
+  no-PSRAM C5 drops it (auto-detected). Set the Relay URL in Config, then "Go remote" in the portal.
 - **Config** (`config.cpp`) — NVS settings; declare fields once, the portal auto-renders
   the form. Includes the **boot-splash on/off** toggle, **Export all / Import** of the whole
   config (+ WiFi) as a JSON file, and named **config profiles** saved in the browser.
