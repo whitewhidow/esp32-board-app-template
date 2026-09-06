@@ -154,6 +154,10 @@ const QUIET_TX = ['__STATUS__','__WIFIST__','__VER__','__TIME__','__CFGGET__','_
 const QUIET_RX = ['st:','ver:','wifi:','ota:','cfg:','pll','pslots','sw:','wok','wifiget:','note:ready','note:ack'];
 function feedTx(s){ if(s && !QUIET_TX.some(q=>s.startsWith(q))) log('→ '+s); }
 function feedRx(v){ if(v && !QUIET_RX.some(q=>v.startsWith(q))) log('← '+v); }
+// Log a status transition ONCE (deduped) — periodic polls repeat the same value; we only want the
+// moment it CHANGES (wifi connects/drops, relay goes online).
+const _lastState = {};
+function logChange(key, msg){ if(_lastState[key] !== msg){ _lastState[key] = msg; log('· '+msg); } }
 function send(s){
   feedTx(s);
   if (relay) return relaySend(s);               // remote: POST the command to the relay
@@ -239,14 +243,16 @@ function handleLine(v){
         $('hFs').style.color=(free<tot*0.1)?'#e5a94d':''; $('hFs').hidden=false; }
       else $('hFs').hidden=true; }
     const rl=v.match(/rly=(\d+)/); if(rl){ const n=+rl[1];
-      const lbl=n===4?'remote (open AP)':n===2?'remote':n===3?'scanning':'connecting';
+      const lbl=n===4?'remote (open AP)':n===2?'remote':n===3?'scanning':n===1?'connecting':'off';
       const col=n===4?'#5aa9ff':n===2?'var(--green)':n===3?'#5aa9ff':'#e5a94d';
-      $('hRly').textContent='📡 '+lbl; $('hRly').style.color=col; $('hRly').hidden=(n===0); }
+      $('hRly').textContent='📡 '+lbl; $('hRly').style.color=col; $('hRly').hidden=(n===0);
+      logChange('rly','relay: '+lbl); }
     return; }
   if (v.startsWith('wifi:')) { const p=v.slice(5).split('|'); wifiConfigured=(p[0]&&p[0]!=='-');
     // p = [ssid, status, ip, ver] — show which AP we're actually on + the IP
     const ip=(p[2]&&p[2]!=='-')?(' — '+p[2]):''; $('wifiStat').textContent = 'wifi: ' + p.slice(0,2).join(' — ') + ip;
     const hs=$('hSsid'); if(hs){ const on=(p[1]==='connected'); hs.textContent = on?('📶 '+p[0]):''; hs.hidden=!on; }
+    logChange('wifi','wifi: '+(p[0]||'-')+' — '+(p[1]||'?')+ip);
     return; }
   if (v.startsWith('ota:'))  { $('otaStat').textContent = v.slice(4); return; }
   // (already echoed via feedRx at the top)
@@ -268,20 +274,28 @@ async function noteLoad(){
     $('noteMsg').textContent=buf.length?('loaded '+buf.length+' B'):'empty';
   } catch(e){ $('noteMsg').textContent='load failed: '+e.message; }
 }
-async function noteSave(){
+// One full save attempt. __NOTEPUT__ truncates a TEMP file (committed to live only on __NOTEEND__),
+// so a partial failure never corrupts the live note and re-running the whole thing is safe.
+async function noteSaveOnce(){
+  const ms = relay ? 12000 : 6000;                // relay round-trips (incl. a cold Render) need longer than BLE
   const bytes=new TextEncoder().encode($('noteTxt').value);
+  const r=await req('__NOTEPUT__','note:', ms); if(r!=='note:ready') throw new Error('not ready');
+  const CH=120;
+  for (let i=0;i<bytes.length;i+=CH){
+    const chunk=bytes.slice(i,i+CH); let bin=''; chunk.forEach(b=>bin+=String.fromCharCode(b));
+    await req('__NOTEADD__:'+btoa(bin),'note:ack', ms);
+    $('noteMsg').textContent='saving… '+Math.round(100*Math.min(i+CH,bytes.length)/Math.max(bytes.length,1))+'%';
+  }
+  return req('__NOTEEND__','note:done', ms);
+}
+async function noteSave(){
   $('noteMsg').textContent='saving…';
-  try {
-    const r=await req('__NOTEPUT__','note:'); if(r!=='note:ready') throw new Error('not ready');
-    const CH=120;
-    for (let i=0;i<bytes.length;i+=CH){
-      const chunk=bytes.slice(i,i+CH); let bin=''; chunk.forEach(b=>bin+=String.fromCharCode(b));
-      await req('__NOTEADD__:'+btoa(bin),'note:ack');
-      $('noteMsg').textContent='saving… '+Math.round(100*Math.min(i+CH,bytes.length)/Math.max(bytes.length,1))+'%';
-    }
-    const done=await req('__NOTEEND__','note:done');
-    $('noteMsg').textContent='saved ✓ ('+done.slice(10)+' B on board)';
-  } catch(e){ $('noteMsg').textContent='save failed: '+e.message; }
+  let lastErr;
+  for (let t=0; t<3; t++){
+    try { const done=await noteSaveOnce(); $('noteMsg').textContent='saved ✓ ('+done.slice(10)+' B on board)'; return; }
+    catch(e){ lastErr=e; if(t<2){ log('⟳ save retry '+(t+1)+' ('+e.message+')'); await new Promise(r=>setTimeout(r,400)); } }
+  }
+  $('noteMsg').textContent='save failed: '+lastErr.message;
 }
 $('noteLoad').onclick=noteLoad;
 $('noteSave').onclick=noteSave;
