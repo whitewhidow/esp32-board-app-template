@@ -400,11 +400,23 @@ function updateRelayUI(){ const has = cfgVal('relayurl').length>0;
   if($('goRemoteBlock')) $('goRemoteBlock').hidden = !has;
   if($('goRemoteHint'))  $('goRemoteHint').hidden  = has; }
 // Go remote: board uses its saved relay config; then this page switches to the relay transport.
+// Pre-warm the relay (Render free tier sleeps ~15min idle -> ~30-50s cold start). GET /health
+// until it answers, so the board isn't the one eating the cold start when it starts polling.
+async function relayWake(url){
+  for (let i=0;i<20;i++){   // ~up to 60s
+    try { const r=await fetch(url+'/health'); if(r.ok) return true; } catch(e){}
+    if($('rmMsg')) $('rmMsg').textContent='waking relay… ('+(i+1)+')';
+    await new Promise(r=>setTimeout(r,3000));
+  }
+  return false;
+}
 $('rmGo').onclick = async () => {
   const url=cfgVal('relayurl').replace(/\/+$/,''), tok=cfgVal('relaytok');
   if(!url){ $('rmMsg').textContent='set a Relay URL in Config first'; return; }
-  $('rmMsg').textContent='switching to relay…';
+  $('rmMsg').textContent='waking relay…';
   try {
+    if(!await relayWake(url)){ $('rmMsg').textContent='relay not reachable — check the URL'; return; }
+    $('rmMsg').textContent='switching to relay…';
     const r=await req('__RELAY__', 'relay:', 8000);
     if(r.startsWith('relay:up')){ const id=r.slice(9).trim();
       try{ localStorage.setItem('relay-last', JSON.stringify({url,id,tok})); }catch(e){}
